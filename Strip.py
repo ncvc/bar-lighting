@@ -3,7 +3,7 @@
 # Colors are represented as a three element list [R, G, B]
 # where 0 <= R, G, B <= 127
 
-import time
+import time, random
 
 class Strip:
     def __init__(self, num_pixels, device_name):
@@ -54,6 +54,28 @@ class Strip:
                 self.setPixelColor(i, self.wheel(((i * 384 / self.num_pixels) + j) % 384))
             self.show()
             time.sleep(wait)
+    
+    def random_selection(self):
+        wait = .05
+        winner = random.randint(3 * self.num_pixels, 5 * self.num_pixels)
+        for i in range(winner):
+            self.setPixelColor(i % self.num_pixels, [0, 127, 0])
+            self.show()
+            if (winner - i < 15):
+                wait *= 1.25
+            time.sleep(wait)
+        
+        self.setPixelColor(winner % self.num_pixels, [127, 127, 127])
+        self.blink(8, .5, .5)
+
+    def blink(self, num_times, time_on, time_off):
+        buffer = self.buffer
+        for i in range(num_times):
+            self.blackout()
+            time.wait(time_off)
+            self.buffer = buffer
+            self.show()
+            time.wait(time_on)
 
     def show(self):
         self.device.write(self.buffer)
