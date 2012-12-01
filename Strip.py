@@ -5,6 +5,8 @@
 
 import time, random
 
+dev = '/dev/spidev0.1'
+
 class Strip:
     def __init__(self, num_pixels, device_name):
         self.num_pixels = num_pixels
@@ -14,9 +16,9 @@ class Strip:
 
     def setPixelColor(self, pixel, color):
         if (pixel < self.num_pixels):
-            self.buffer[3 * pixel] = color[1] #G, yep they really are in this order!
-            self.buffer[3 * pixel] = color[0] #R
-            self.buffer[3 * pixel] = color[2] #B
+            self.buffer[3 * pixel] = (color[1]/2) | 0x80  # G, yep they really are in this order!
+            self.buffer[3 * pixel] = (color[0]/2) | 0x80  # R
+            self.buffer[3 * pixel] = (color[2]/2) | 0x80  # B
 
     def setColor(self, color):
         for i in range(self.num_pixels):
@@ -54,7 +56,7 @@ class Strip:
                 self.setPixelColor(i, self.wheel(((i * 384 / self.num_pixels) + j) % 384))
             self.show()
             time.sleep(wait)
-    
+
     def random_selection(self):
         wait = .05
         winner = random.randint(3 * self.num_pixels, 5 * self.num_pixels)
@@ -64,20 +66,21 @@ class Strip:
             if (winner - i < 15):
                 wait *= 1.25
             time.sleep(wait)
-        
+
         self.setPixelColor(winner % self.num_pixels, [127, 127, 127])
         self.blink(8, .5, .5)
 
     def blink(self, num_times, time_on, time_off):
-        buffer = self.buffer
+        buf = self.buffer
         for i in range(num_times):
             self.blackout()
             time.wait(time_off)
-            self.buffer = buffer
+            self.buffer = buf
             self.show()
             time.wait(time_on)
 
     def show(self):
+        print [chr(x) for x in self.buffer]
         self.device.write(self.buffer)
 
     def wheel(self, position):
@@ -101,23 +104,24 @@ class Strip:
         return [r, g, b]
 
 
-strip = Strip(32, "foo") 
+if __name__ == '__main__':
+    strip = Strip(64, dev)
 
-while True:
-    # Send a simple pixel chase in...
-    wait = .01
-    strip.colorChase([127, 127, 127], wait) # White
-    strip.colorChase([127,   0,   0], wait) # Red
-    strip.colorChase([127, 127,   0], wait) # Yellow
-    strip.colorChase([  0, 127,   0], wait) # Green
-    strip.colorChase([  0, 127, 127], wait) # Cyan
-    strip.colorChase([  0,   0, 127], wait) # Blue
-    strip.colorChase([127,   0, 127], wait) # Violet
+    while True:
+        # Send a simple pixel chase in...
+        wait = .2
+        strip.colorChase([127, 127, 127], wait)  # White
+        strip.colorChase([127,   0,   0], wait)  # Red
+        strip.colorChase([127, 127,   0], wait)  # Yellow
+        strip.colorChase([  0, 127,   0], wait)  # Green
+        strip.colorChase([  0, 127, 127], wait)  # Cyan
+        strip.colorChase([  0,   0, 127], wait)  # Blue
+        strip.colorChase([127,   0, 127], wait)  # Violet
 
-    # Fill the entire strip with...
-    strip.colorWipe([127,   0,   0], wait) # Red
-    strip.colorWipe([  0, 127,   0], wait) # Green
-    strip.colorWipe([  0,   0, 127], wait) # Blue
-    
-    strip.rainbow(wait);
-    strip.rainbowCycle(wait);  # make it go through the cycle fairly fast
+        # Fill the entire strip with...
+        strip.colorWipe([127,   0,   0], wait)  # Red
+        strip.colorWipe([  0, 127,   0], wait)  # Green
+        strip.colorWipe([  0,   0, 127], wait)  # Blue
+
+        strip.rainbow(wait)
+        strip.rainbowCycle(wait)  # make it go through the cycle fairly fast
