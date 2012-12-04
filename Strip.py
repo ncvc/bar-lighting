@@ -8,10 +8,10 @@ import time, random
 dev = '/dev/spidev0.0'
 
 class Strip:
-    def __init__(self, num_pixels, device_name):
+    def __init__(self, num_pixels, device_name=dev):
         self.num_pixels = num_pixels
         self.device = file(device_name, "wb")
-        self.buffer = bytearray(num_pixels * 3 + 1)
+        self.buffer = bytearray(num_pixels * 3)
         self.show()
 
     def setPixelColor(self, pixel, color):
@@ -29,48 +29,41 @@ class Strip:
         self.show()
 
     def show(self):
-        #print [chr(x) for x in self.buffer]
-        print [chr(x) for x in self.buffer]
         for x in range(self.num_pixels):
             self.device.write(self.buffer[x*3:x*3+3])
             self.device.flush()
         self.device.write(bytearray(b'\x00\x00\x00'))  # zero fill the last to prevent stray colors at the end
         self.device.write(bytearray(b'\x00'))
         self.device.flush()
-        time.sleep(0.1)
-        print 'sadf'
-        # wat = bytearray([0x8F] * self.num_pixels * 3 + [0])
-        # print [chr(x) for x in wat]
-        # self.device.write(wat)
-        # self.flush.device()
-        # time.sleep(0.001)
+        time.sleep(0.001)
 
 
 class Animations:
     def __init__(self, strip):
         self.strip = strip
+        # (func, args)
 
     def doABigGoddamnLoop(self):
         while True:
             # Send a simple pixel chase in...
-            wait = .2
-            self.colorChase([127, 127, 127], wait)  # White
-            self.colorChase([127,   0,   0], wait)  # Red
-            self.colorChase([127, 127,   0], wait)  # Yellow
-            self.colorChase([  0, 127,   0], wait)  # Green
-            self.colorChase([  0, 127, 127], wait)  # Cyan
-            self.colorChase([  0,   0, 127], wait)  # Blue
-            self.colorChase([127,   0, 127], wait)  # Violet
+            wait = 0
+            # self.colorChase([127, 127, 127], wait)  # White
+            # self.colorChase([127,   0,   0], wait)  # Red
+            # self.colorChase([127, 127,   0], wait)  # Yellow
+            # self.colorChase([  0, 127,   0], wait)  # Green
+            # self.colorChase([  0, 127, 127], wait)  # Cyan
+            # self.colorChase([  0,   0, 127], wait)  # Blue
+            # self.colorChase([127,   0, 127], wait)  # Violet
 
-            # Fill the entire strip with...
-            self.colorWipe([127,   0,   0], wait)  # Red
-            self.colorWipe([  0, 127,   0], wait)  # Green
-            self.colorWipe([  0,   0, 127], wait)  # Blue
+            # # Fill the entire strip with...
+            # self.colorWipe([127,   0,   0], wait)  # Red
+            # self.colorWipe([  0, 127,   0], wait)  # Green
+            # self.colorWipe([  0,   0, 127], wait)  # Blue
 
-            self.rainbow(wait)
+            # self.rainbow(wait)
             self.rainbowCycle(wait)  # make it go through the cycle fairly fast
 
-    def colorChase(self, color, wait):
+    def colorChase(self, color, wait=0.01, random=False):
         self.strip.blackout()
         for i in range(self.strip.num_pixels):
             self.strip.setPixelColor(i, color)
@@ -79,27 +72,27 @@ class Animations:
             time.sleep(wait)
         self.strip.show()
 
-    def colorWipe(self, color, wait):
+    def colorWipe(self, color, wait=0.01, random=False):
         for i in range(self.strip.num_pixels):
             self.strip.setPixelColor(i, color)
             self.strip.show()
             time.sleep(wait)
 
-    def rainbow(self, wait):
+    def rainbow(self, wait=0.01, random=False):
         for j in range(384):
             for i in range(self.strip.num_pixels):
                 self.strip.setPixelColor(i, self.wheel((i + j) % 384))
             self.strip.show()
             time.sleep(wait)
 
-    def rainbowCycle(self, wait):
+    def rainbowCycle(self, wait=0.01, random=False):
         for j in range(384 * 5):
             for i in range(self.strip.num_pixels):
                 self.strip.setPixelColor(i, self.wheel(((i * 384 / self.strip.num_pixels) + j) % 384))
             self.strip.show()
             time.sleep(wait)
 
-    def random_selection(self):
+    def random_selection(self, random=False):
         wait = .05
         winner = random.randint(3 * self.strip.num_pixels, 5 * self.strip.num_pixels)
         for i in range(winner):
@@ -112,7 +105,7 @@ class Animations:
         self.strip.setPixelColor(winner % self.strip.num_pixels, [127, 127, 127])
         self.blink(8, .5, .5)
 
-    def blink(self, num_times, time_on, time_off):
+    def blink(self, num_times, time_on, time_off, random=False):
         buf = self.buffer
         for i in range(num_times):
             self.strip.blackout()
@@ -121,7 +114,7 @@ class Animations:
             self.strip.show()
             time.wait(time_on)
 
-    def wheel(self, position):
+    def wheel(self, position, random=False):
         r = 0
         g = 0
         b = 0
@@ -145,5 +138,5 @@ class Animations:
 if __name__ == '__main__':
     strip = Strip(32, dev)
     strip.blackout()
-    #anim = Animations(strip)
-    #anim.doABigGoddamnLoop()
+    anim = Animations(strip)
+    anim.doABigGoddamnLoop()
