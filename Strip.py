@@ -5,20 +5,47 @@
 
 import time, random
 
-dev = '/dev/spidev0.0'
+DEV_PATH = '/dev/spidev0.0'
+MAX_BRIGHTNESS = 127
 
 class Strip:
-    def __init__(self, num_pixels, device_name=dev):
+    def __init__(self, num_pixels, device_name=DEV_PATH):
         self.num_pixels = num_pixels
+        self.xmasMode = False
         self.device = file(device_name, "wb")
         self.buffer = bytearray(num_pixels * 3)
         self.show()
 
     def setPixelColor(self, pixel, color):
-        if (pixel < self.num_pixels):
-            self.buffer[3 * pixel] = (color[1]/2) | 0x80  # G, yep they really are in this order!
-            self.buffer[3 * pixel + 1] = (color[0]/2) | 0x80  # R
-            self.buffer[3 * pixel + 2] = (color[2]/2) | 0x80  # B
+        if (pixel >= self.num_pixels):
+            return
+
+        color = [max(0, min(i, MAX_BRIGHTNESS)) for i in color]
+
+        if self.xmasMode:
+            i=0
+            minBrightness = 50
+            if i == 0:
+                color[2] = 0
+            elif i==1:
+                distR = (color[0] - MAX_BRIGHTNESS)**2 + color[1]**2 + color[2]**2
+                distG = color[0]**2 + (color[1] - MAX_BRIGHTNESS)**2 + color[2]**2
+                if distR < distG:
+                    color = [MAX_BRIGHTNESS, 0, 0]
+                else:
+                    color = [0, MAX_BRIGHTNESS, 0]
+            elif i==2:
+                distR = (color[0] - MAX_BRIGHTNESS)**2 + color[1]**2 + color[2]**2
+                distG = color[0]**2 + (color[1] - MAX_BRIGHTNESS)**2 + color[2]**2
+                if distR < distG:
+                    color[1] = color[2] = 0
+                else:
+                    color[0] = color[2] = 0
+                color = [max(minBrightness, min(i, MAX_BRIGHTNESS)) for i in color]
+
+        self.buffer[3 * pixel] = (color[1]/2) | 0x80  # G, yep they really are in this order!
+        self.buffer[3 * pixel + 1] = (color[0]/2) | 0x80  # R
+        self.buffer[3 * pixel + 2] = (color[2]/2) | 0x80  # B
 
     def setColor(self, color):
         for i in range(self.num_pixels):
@@ -37,11 +64,13 @@ class Strip:
         self.device.flush()
         time.sleep(0.001)
 
+    def enableXmasMode(self, enable=True):
+        self.xmasMode = enable
+
 
 class Animations:
     def __init__(self, strip):
         self.strip = strip
-        # (func, args)
 
     def doABigGoddamnLoop(self):
         while True:
@@ -63,7 +92,7 @@ class Animations:
             # self.rainbow(wait)
             self.rainbowCycle(wait)  # make it go through the cycle fairly fast
 
-    def colorChase(self, color, wait=0.01, random=False):
+    def colorChase(self, color, wait=0.01):
         self.strip.blackout()
         for i in range(self.strip.num_pixels):
             self.strip.setPixelColor(i, color)
@@ -72,27 +101,27 @@ class Animations:
             time.sleep(wait)
         self.strip.show()
 
-    def colorWipe(self, color, wait=0.01, random=False):
+    def colorWipe(self, color, wait=0.01):
         for i in range(self.strip.num_pixels):
             self.strip.setPixelColor(i, color)
             self.strip.show()
             time.sleep(wait)
 
-    def rainbow(self, wait=0.01, random=False):
+    def rainbow(self, wait=0.01):
         for j in range(384):
             for i in range(self.strip.num_pixels):
                 self.strip.setPixelColor(i, self.wheel((i + j) % 384))
             self.strip.show()
             time.sleep(wait)
 
-    def rainbowCycle(self, wait=0.01, random=False):
+    def rainbowCycle(self, wait=0.01):
         for j in range(384 * 5):
             for i in range(self.strip.num_pixels):
                 self.strip.setPixelColor(i, self.wheel(((i * 384 / self.strip.num_pixels) + j) % 384))
             self.strip.show()
             time.sleep(wait)
 
-    def random_selection(self, random=False):
+    def random_selection(self):
         wait = .05
         winner = random.randint(3 * self.strip.num_pixels, 5 * self.strip.num_pixels)
         for i in range(winner):
@@ -105,7 +134,7 @@ class Animations:
         self.strip.setPixelColor(winner % self.strip.num_pixels, [127, 127, 127])
         self.blink(8, .5, .5)
 
-    def blink(self, num_times, time_on, time_off, random=False):
+    def blink(self, num_times, time_on, time_off):
         buf = self.buffer
         for i in range(num_times):
             self.strip.blackout()
@@ -114,7 +143,7 @@ class Animations:
             self.strip.show()
             time.wait(time_on)
 
-    def wheel(self, position, random=False):
+    def wheel(self, position):
         r = 0
         g = 0
         b = 0
@@ -136,7 +165,7 @@ class Animations:
 
 
 if __name__ == '__main__':
-    strip = Strip(32, dev)
+    strip = Strip(32)
     strip.blackout()
     anim = Animations(strip)
     anim.doABigGoddamnLoop()
