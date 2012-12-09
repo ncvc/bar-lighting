@@ -5,21 +5,45 @@
 
 import time
 
-dev = '/dev/spidev0.0'
+DEV_PATH = '/dev/spidev0.0'
+MAX_BRIGHTNESS = 127
 
 class Strip:
-    def __init__(self, num_pixels, device_name=dev):
+    def __init__(self, num_pixels, device_name=DEV_PATH):
         self.num_pixels = num_pixels
+        self.xmasMode = False
         self.device = file(device_name, "wb")
         self.buffer = bytearray(num_pixels * 3)
         self.show()
 
     def setPixelColor(self, pixel, color):
         pixel = pixel % self.num_pixels
-        if (pixel < self.num_pixels):
-            self.buffer[3 * pixel] = (color[1]/2) | 0x80  # G, yep they really are in this order!
-            self.buffer[3 * pixel + 1] = (color[0]/2) | 0x80  # R
-            self.buffer[3 * pixel + 2] = (color[2]/2) | 0x80  # B
+        color = [max(0, min(i, MAX_BRIGHTNESS)) for i in color]
+
+        if self.xmasMode:
+            i=0
+            minBrightness = 50
+            if i == 0:
+                color[2] = 0
+            elif i==1:
+                distR = (color[0] - MAX_BRIGHTNESS)**2 + color[1]**2 + color[2]**2
+                distG = color[0]**2 + (color[1] - MAX_BRIGHTNESS)**2 + color[2]**2
+                if distR < distG:
+                    color = [MAX_BRIGHTNESS, 0, 0]
+                else:
+                    color = [0, MAX_BRIGHTNESS, 0]
+            elif i==2:
+                distR = (color[0] - MAX_BRIGHTNESS)**2 + color[1]**2 + color[2]**2
+                distG = color[0]**2 + (color[1] - MAX_BRIGHTNESS)**2 + color[2]**2
+                if distR < distG:
+                    color[1] = color[2] = 0
+                else:
+                    color[0] = color[2] = 0
+                color = [max(minBrightness, min(i, MAX_BRIGHTNESS)) for i in color]
+
+        self.buffer[3 * pixel] = (color[1]/2) | 0x80  # G, yep they really are in this order!
+        self.buffer[3 * pixel + 1] = (color[0]/2) | 0x80  # R
+        self.buffer[3 * pixel + 2] = (color[2]/2) | 0x80  # B
 
     def setColor(self, color):
         for i in range(self.num_pixels):
@@ -37,3 +61,6 @@ class Strip:
         self.device.write(bytearray(b'\x00'))
         self.device.flush()
         time.sleep(0.001)
+
+    def enableXmasMode(self, enable=True):
+        self.xmasMode = enable
