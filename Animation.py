@@ -38,7 +38,20 @@ class Rainbow(Animation):
         for i in range(self.strip.num_pixels):
             self.strip.setPixelColor(i, self.wheel((i + self.j) % 384))
             self.strip.show()
-        self.j = (self.j + 1) % 384
+        self.j = (self.j + 5) % 384
+        time.sleep(self.wait)
+
+class RainbowCycle(Animation):
+    def __init__(self, strip, wait=0.01):
+        super(RainbowCycle, self).__init__(strip)
+        self.j = 0;
+        self.wait = wait;
+
+    def step(self):
+        for i in range(self.strip.num_pixels):
+            self.strip.setPixelColor(i, self.wheel(((i * 384 / self.strip.num_pixels) + self.j) % 384))
+            self.strip.show()
+        self.j = (self.j + 5) % (384 * 5)
         time.sleep(self.wait)
 
 class ColorChase(Animation):
@@ -76,34 +89,21 @@ class ColorWipe(Animation):
     def step(self):
         if self.i == self.strip.num_pixels - 1:
             self.strip.setColor([0,0,0])
-            tmp = self.r
-            self.g = self.r
-            self.r = tmp
+
+#            tmp = self.g
+#            self.g = self.r
+#            self.r = tmp
         else:
+            tmp = self.r
+            self.r = self.g
+            self.g = self.b
+            self.b = tmp
             self.strip.setPixelColor(self.i, [self.r, self.g, self.b])
         self.strip.show()
         self.i = (self.i + 1) % self.strip.num_pixels
         time.sleep(self.wait)
 
 """
-    def colorChase(self, color, wait=0.01):
-        self.strip.blackout()
-        for i in range(self.strip.num_pixels):
-            self.strip.setPixelColor(i, color)
-            self.strip.show()
-            self.strip.setPixelColor(i, [0,0,0])
-            time.sleep(wait)
-        self.strip.show()
-
-    def colorWipe(self, color, wait=0.01, random=False):
-        for i in range(self.strip.num_pixels):
-            self.strip.setPixelColor(i, color)
-            self.strip.show()
-            time.sleep(wait)
-
-    def rainbow(self, wait=0.01):
-        self.animation = self.animations["rainbow"]
-
     def rainbowCycle(self, wait=0.01, random=False):
         for j in range(384 * 5):
             for i in range(self.strip.num_pixels):
