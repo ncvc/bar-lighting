@@ -3,7 +3,7 @@
 # Colors are represented as a three element list [R, G, B]
 # where 0 <= R, G, B <= 127
 
-import time, random
+import time
 
 dev = '/dev/spidev0.0'
 
@@ -15,6 +15,7 @@ class Strip:
         self.show()
 
     def setPixelColor(self, pixel, color):
+        pixel = pixel % self.num_pixels
         if (pixel < self.num_pixels):
             self.buffer[3 * pixel] = (color[1]/2) | 0x80  # G, yep they really are in this order!
             self.buffer[3 * pixel + 1] = (color[0]/2) | 0x80  # R
@@ -36,107 +37,3 @@ class Strip:
         self.device.write(bytearray(b'\x00'))
         self.device.flush()
         time.sleep(0.001)
-
-
-class Animations:
-    def __init__(self, strip):
-        self.strip = strip
-        # (func, args)
-
-    def doABigGoddamnLoop(self):
-        while True:
-            # Send a simple pixel chase in...
-            wait = 0
-            # self.colorChase([127, 127, 127], wait)  # White
-            # self.colorChase([127,   0,   0], wait)  # Red
-            # self.colorChase([127, 127,   0], wait)  # Yellow
-            # self.colorChase([  0, 127,   0], wait)  # Green
-            # self.colorChase([  0, 127, 127], wait)  # Cyan
-            # self.colorChase([  0,   0, 127], wait)  # Blue
-            # self.colorChase([127,   0, 127], wait)  # Violet
-
-            # # Fill the entire strip with...
-            # self.colorWipe([127,   0,   0], wait)  # Red
-            # self.colorWipe([  0, 127,   0], wait)  # Green
-            # self.colorWipe([  0,   0, 127], wait)  # Blue
-
-            # self.rainbow(wait)
-            self.rainbowCycle(wait)  # make it go through the cycle fairly fast
-
-    def colorChase(self, color, wait=0.01, random=False):
-        self.strip.blackout()
-        for i in range(self.strip.num_pixels):
-            self.strip.setPixelColor(i, color)
-            self.strip.show()
-            self.strip.setPixelColor(i, [0,0,0])
-            time.sleep(wait)
-        self.strip.show()
-
-    def colorWipe(self, color, wait=0.01, random=False):
-        for i in range(self.strip.num_pixels):
-            self.strip.setPixelColor(i, color)
-            self.strip.show()
-            time.sleep(wait)
-
-    def rainbow(self, wait=0.01, random=False):
-        for j in range(384):
-            for i in range(self.strip.num_pixels):
-                self.strip.setPixelColor(i, self.wheel((i + j) % 384))
-            self.strip.show()
-            time.sleep(wait)
-
-    def rainbowCycle(self, wait=0.01, random=False):
-        for j in range(384 * 5):
-            for i in range(self.strip.num_pixels):
-                self.strip.setPixelColor(i, self.wheel(((i * 384 / self.strip.num_pixels) + j) % 384))
-            self.strip.show()
-            time.sleep(wait)
-
-    def random_selection(self, random=False):
-        wait = .05
-        winner = random.randint(3 * self.strip.num_pixels, 5 * self.strip.num_pixels)
-        for i in range(winner):
-            self.strip.setPixelColor(i % self.strip.num_pixels, [0, 127, 0])
-            self.strip.show()
-            if (winner - i < 15):
-                wait *= 1.25
-            time.sleep(wait)
-
-        self.strip.setPixelColor(winner % self.strip.num_pixels, [127, 127, 127])
-        self.blink(8, .5, .5)
-
-    def blink(self, num_times, time_on, time_off, random=False):
-        buf = self.buffer
-        for i in range(num_times):
-            self.strip.blackout()
-            time.wait(time_off)
-            self.buffer = buf
-            self.strip.show()
-            time.wait(time_on)
-
-    def wheel(self, position, random=False):
-        r = 0
-        g = 0
-        b = 0
-
-        if position / 128 == 0:
-            r = 127 - position % 128
-            g = position % 128
-            b = 0
-        elif position / 128 == 1:
-            g = 127 - position % 128
-            b = position % 128
-            r = 0
-        elif position / 128 == 2:
-            b = 127 - position % 128
-            r = position % 128
-            g = 0
-
-        return [r, g, b]
-
-
-if __name__ == '__main__':
-    strip = Strip(32, dev)
-    strip.blackout()
-    anim = Animations(strip)
-    anim.doABigGoddamnLoop()
