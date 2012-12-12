@@ -8,7 +8,7 @@ class Animation(object):
 
     def step(self):
         #Override this method in subclasses
-        pass
+        return True
 
     def wheel(self, position, random=False):
         r = 0
@@ -41,6 +41,7 @@ class Rainbow(Animation):
             self.strip.show()
         self.j = (self.j + 5) % 384
         time.sleep(self.wait)
+        return True
 
 class RainbowCycle(Animation):
     def __init__(self, strip, wait=0.01):
@@ -53,6 +54,7 @@ class RainbowCycle(Animation):
             self.strip.show()
         self.j = (self.j + 5) % (384 * 5)
         time.sleep(self.wait)
+        return True
 
 class ColorChase(Animation):
     def __init__(self, strip, wait=0.01):
@@ -65,6 +67,7 @@ class ColorChase(Animation):
         self.strip.show()
         self.i = (self.i + 1 ) % self.strip.num_pixels
         time.sleep(self.wait)
+        return self.i % self.strip.num_pixels == 0
 
 class Blackout(Animation):
     def __init__(self, strip, wait=1):
@@ -74,6 +77,7 @@ class Blackout(Animation):
         self.strip.setColor([0,0,0])
         self.strip.show()
         time.sleep(self.wait)
+        return True
 
 class ColorWipe(Animation):
     def __init__(self, strip, wait=.01):
@@ -86,10 +90,6 @@ class ColorWipe(Animation):
     def step(self):
         if self.i == self.strip.num_pixels - 1:
             self.strip.setColor([0,0,0])
-
-#            tmp = self.g
-#            self.g = self.r
-#            self.r = tmp
         else:
             tmp = self.r
             self.r = self.g
@@ -99,3 +99,4 @@ class ColorWipe(Animation):
         self.strip.show()
         self.i = (self.i + 1) % self.strip.num_pixels
         time.sleep(self.wait)
+        return True
