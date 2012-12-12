@@ -14,7 +14,7 @@ class Animator(SocketServer.UnixStreamServer, object):
         super(Animator, self).__init__(socket_name, handler)
         self.queue      = Queue.Queue(1)
         strip           = Strip.Strip(32)
-        self.stepper    = Stepper(self.queue, Animation.Animation(strip))
+        self.stepper    = Stepper(self.queue, Animation.Animation(strip, 0.01))
         self.stepper.start()
         self.animations = {'colorchase' : Animation.ColorChase(strip),
                            'colorwipe' : Animation.ColorWipe(strip),
@@ -45,15 +45,9 @@ class Stepper(threading.Thread, object):
         self.stop_request = threading.Event()
         self.queue        = queue
         self.animation    = anim
-        self.i            = 0
         self.start_time   = None
 
     def run(self):
-        if self.i % 100:
-            if self.start_time != None:
-                print (datetime.datetime.now() - self.start_time) / 100
-            self.start_time = datetime.datetime.now()
-
         while not self.stop_request.isSet():
             try:
                 self.animation = self.queue.get(False)
