@@ -5,15 +5,16 @@ import Queue
 import threading
 import os.path
 import socket
+import datetime
 
 socket_name = "/tmp/thechillsocket"
 
 class Animator(SocketServer.UnixStreamServer, object):
     def __init__(self, socket_name, handler):
         super(Animator, self).__init__(socket_name, handler)
-        self.queue = Queue.Queue()
-        strip = Strip.Strip(32)
-        self.stepper = Stepper(self.queue, Animation.Animation(strip))
+        self.queue      = Queue.Queue(1)
+        strip           = Strip.Strip(32)
+        self.stepper    = Stepper(self.queue, Animation.Animation(strip))
         self.stepper.start()
         self.animations = {'colorchase' : Animation.ColorChase(strip),
                            'colorwipe' : Animation.ColorWipe(strip),
@@ -23,7 +24,10 @@ class Animator(SocketServer.UnixStreamServer, object):
     
     def addToQueue(self, animation):
         if self.animations.has_key(animation):
-            self.queue.put(self.animations[animation])
+            try:        
+                self.queue.put(self.animations[animation], False)
+            except Queue.Full:
+                pass
 
     def shutdown(self):
         self.stepper.join()
@@ -39,18 +43,23 @@ class Stepper(threading.Thread, object):
     def __init__(self, queue, anim):
         super(Stepper, self).__init__()
         self.stop_request = threading.Event()
-        self.queue = queue
-        self.animation = anim
-        self.i = 0
+        self.queue        = queue
+        self.animation    = anim
+        self.i            = 0
+        self.start_time   = None
 
     def run(self):
+        if self.i % 100:
+            if self.start_time != None:
+                print (datetime.datetime.now() - self.start_time) / 100
+            self.start_time = datetime.datetime.now()
+
         while not self.stop_request.isSet():
             try:
-                self.animation = self.queue.get(True, 0.0000001)
+                self.animation = self.queue.get(False)
                 print "retreived item from queue"
             except Queue.Empty:
                 pass
-            self.i = self.i + 1
             self.animation.step()
             
     def join(self, timeout=None):
@@ -78,10 +87,10 @@ def sendMessage(message):
 
 if __name__ == "__main__":
     print "Starting server"
+    if os.path.exists(socket_name):
+        os.remove(socket_name)
     try:
-        if os.path.exists(socket_name):
-            os.remove(socket_name)
-            server = Animator(socket_name, AnimationRequestHandler)
+        server = Animator(socket_name, AnimationRequestHandler)
     except Exception as e:
         print "{0}\nError starting server:\n".format(e)
         raise
