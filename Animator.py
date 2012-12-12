@@ -49,12 +49,13 @@ class Stepper(threading.Thread, object):
 
     def run(self):
         while not self.stop_request.isSet():
-            try:
-                self.animation = self.queue.get(False)
-                print "retreived item from queue"
-            except Queue.Empty:
-                pass
-            self.animation.step()
+            done = self.animation.step()
+            if done:
+                try:
+                    self.animation = self.queue.get(False)
+                    print "retreived item from queue"
+                except Queue.Empty:
+                    pass
             
     def join(self, timeout=None):
         print "join called"
