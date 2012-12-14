@@ -16,12 +16,13 @@ class Strip:
         self.buffer = bytearray(num_pixels * 3)
         self.show()
 
+
     def setPixelColor(self, pixel, color):
         pixel = pixel % self.num_pixels
         color = [max(0, min(i, MAX_BRIGHTNESS)) for i in color]
 
         if self.xmasMode:
-            i=0
+            i=1
             minBrightness = 50
             if i == 0:
                 color[2] = 0
@@ -41,9 +42,9 @@ class Strip:
                     color[0] = color[2] = 0
                 color = [max(minBrightness, min(i, MAX_BRIGHTNESS)) for i in color]
 
-        self.buffer[3 * pixel] = (color[1]/2) | 0x80  # G, yep they really are in this order!
-        self.buffer[3 * pixel + 1] = (color[0]/2) | 0x80  # R
-        self.buffer[3 * pixel + 2] = (color[2]/2) | 0x80  # B
+        self.buffer[3 * pixel] = (color[1]) | 0x80  # G, yep they really are in this order!
+        self.buffer[3 * pixel + 1] = (color[0]) | 0x80  # R
+        self.buffer[3 * pixel + 2] = (color[2]) | 0x80  # B
 
     def setColor(self, color):
         for i in range(self.num_pixels):
@@ -60,7 +61,7 @@ class Strip:
         self.device.write(bytearray(b'\x00\x00\x00'))  # zero fill the last to prevent stray colors at the end
         self.device.write(bytearray(b'\x00'))
         self.device.flush()
-        time.sleep(0.001)
+        time.sleep(0.0000000001)
 
     def enableXmasMode(self, enable=True):
         self.xmasMode = enable

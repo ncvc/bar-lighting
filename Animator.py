@@ -6,6 +6,7 @@ import threading
 import os.path
 import socket
 import datetime
+import re
 
 socket_name = "/tmp/thechillsocket"
 
@@ -14,21 +15,35 @@ class Animator(SocketServer.UnixStreamServer, object):
         super(Animator, self).__init__(socket_name, handler)
         self.queue      = Queue.Queue(1)
         strip           = Strip.Strip(32)
+        self.strip = strip
         self.stepper    = Stepper(self.queue, Animation.Animation(strip, 0.01))
         self.stepper.start()
-        self.animations = {'colorchase' : Animation.ColorChase(strip),
-                           'colorwipe' : Animation.ColorWipe(strip),
+        self.animations = {'colorwipe' : Animation.ColorWipe(strip),
                            'blackout' : Animation.Blackout(strip),
                            'rainbow' : Animation.Rainbow(strip),
-                           'rainbowcycle' : Animation.RainbowCycle(strip)}
-    
-    def addToQueue(self, animation):
-        if self.animations.has_key(animation):
+                           'rainbowcycle' : Animation.RainbowCycle(strip),
+                           'staticcolor' : Animation.StaticColor(strip),
+                           'randomchoice' : Animation.RandomChoice(strip)}
+
+        self.xmastoggle = False
+
+    def addToQueue(self, command):
+        if re.search(r"^r:\d{1,3},g:\d{1,3},b:\d{1,3}$", command):
+            r, g, b = [int(i.split(":")[-1]) for i in command.split(",")]
+            self.animations['staticcolor'].setRGB(r, g, b)
+            command = 'staticcolor'
+
+        animation = self.animations.get(command)
+        if animation:
             try:        
-                self.queue.put(self.animations[animation], False)
+                self.queue.put(animation, False)
             except Queue.Full:
                 pass
 
+        elif command == "togglexmasmode":
+            self.xmastoggle = not self.xmastoggle
+            self.strip.enableXmasMode(self.xmastoggle)
+            
     def shutdown(self):
         self.stepper.join()
         super(Animator, self).shutdown()
@@ -45,20 +60,24 @@ class Stepper(threading.Thread, object):
         self.stop_request = threading.Event()
         self.queue        = queue
         self.animation    = anim
-        self.start_time   = None
+        self.previous_animation = anim
 
     def run(self):
         while not self.stop_request.isSet():
             done = self.animation.step()
             if done:
                 try:
-                    self.animation = self.queue.get(False)
+                    next_animation = self.queue.get(False)
+                    if next_animation.returns_control:
+                        self.queue.put(self.animation, False)
+                    self.animation = next_animation
+                    self.animation.setup()
                     print "retreived item from queue"
                 except Queue.Empty:
                     pass
             
     def join(self, timeout=None):
-        print "join called"
+        print "thread exiting"
         self.stop_request.set()
         super(Stepper, self).join(timeout)
 
