@@ -7,31 +7,36 @@ import os.path
 import socket
 import datetime
 import re
+import time
+import RPi.GPIO as GPIO
 
-socket_name = "/tmp/thechillsocket"
+SOCKET_NAME = "/tmp/thechillsocket"
+INPUT_PIN   = 8
 
 class Animator(SocketServer.UnixStreamServer, object):
-    def __init__(self, socket_name, handler):
-        super(Animator, self).__init__(socket_name, handler)
-        self.queue      = Queue.Queue(1)
-        strip           = Strip.Strip(32)
-        self.strip = strip
-        self.stepper    = Stepper(self.queue, Animation.Animation(strip, 0.01))
+    def __init__(self, handler):
+        super(Animator, self).__init__(SOCKET_NAME, handler)
+        self.queue         = Queue.Queue(1)
+        strip              = Strip.Strip(32)
+        self.strip         = strip
+        self.stepper       = Stepper(self.queue, Animation.Animation(strip, 0.01))
+        self.buttonmonitor = ButtonMonitor()
+        self.xmastoggle    = False
+        self.animations    = {Animation.COLORWIPE    : Animation.ColorWipe(strip),
+                              Animation.BLACKOUT     : Animation.Blackout(strip),
+                              Animation.RAINBOW      : Animation.Rainbow(strip),
+                              Animation.RAINBOWCYCLE : Animation.RainbowCycle(strip),
+                              Animation.COLOR        : Animation.StaticColor(strip),
+                              Animation.RANDOM       : Animation.RandomChoice(strip)}
+        
         self.stepper.start()
-        self.animations = {'colorwipe' : Animation.ColorWipe(strip),
-                           'blackout' : Animation.Blackout(strip),
-                           'rainbow' : Animation.Rainbow(strip),
-                           'rainbowcycle' : Animation.RainbowCycle(strip),
-                           'staticcolor' : Animation.StaticColor(strip),
-                           'randomchoice' : Animation.RandomChoice(strip)}
-
-        self.xmastoggle = False
+        self.buttonmonitor.start()
 
     def addToQueue(self, command):
         if re.search(r"^r:\d{1,3},g:\d{1,3},b:\d{1,3}$", command):
             r, g, b = [int(i.split(":")[-1]) for i in command.split(",")]
-            self.animations['staticcolor'].setRGB(r, g, b)
-            command = 'staticcolor'
+            self.animations[Animation.COLOR].setRGB(r, g, b)
+            command = Animation.COLOR
 
         animation = self.animations.get(command)
         if animation:
@@ -40,18 +45,19 @@ class Animator(SocketServer.UnixStreamServer, object):
             except Queue.Full:
                 pass
 
-        elif command == "togglexmasmode":
+        elif command == Animation.TOGGLEXMASMODE:
             self.xmastoggle = not self.xmastoggle
             self.strip.enableXmasMode(self.xmastoggle)
             
     def shutdown(self):
         self.stepper.join()
+        self.buttonmonitor.join()
         super(Animator, self).shutdown()
 
 class AnimationRequestHandler(SocketServer.StreamRequestHandler):
     def handle(self):
         self.data = self.rfile.readline().strip()
-        print "Received:     {}".format(self.data)
+        print "Animator Received:     {}".format(self.data)
         self.server.addToQueue(self.data)
 
 class Stepper(threading.Thread, object):
@@ -63,6 +69,7 @@ class Stepper(threading.Thread, object):
         self.previous_animation = anim
 
     def run(self):
+        print "Stepper thread started"
         while not self.stop_request.isSet():
             done = self.animation.step()
             if done:
@@ -72,26 +79,50 @@ class Stepper(threading.Thread, object):
                         self.queue.put(self.animation, False)
                     self.animation = next_animation
                     self.animation.setup()
-                    print "retreived item from queue"
+                    print 'Stepper retreived {0} from queue'.format(self.animation)
                 except Queue.Empty:
                     pass
             
     def join(self, timeout=None):
-        print "thread exiting"
+        print 'Stepper thread exiting'
         self.stop_request.set()
         super(Stepper, self).join(timeout)
+
+class ButtonMonitor(threading.Thread, object):
+    def __init__(self, wait=.25):
+        super(ButtonMonitor, self).__init__()
+        self.stop_request = threading.Event()
+        self.wait = wait
+        GPIO.setmode(GPIO.BOARD)
+        GPIO.setup(INPUT_PIN, GPIO.IN)
+
+    def run(self):
+        print "Button Monitor thread started"
+        message_sent = False
+        while not self.stop_request.isSet():
+            if GPIO.input(INPUT_PIN) and not message_sent:
+                sendMessage(Animation.RANDOM)
+                message_sent = True
+            else:
+                message_sent = False
+            time.sleep(self.wait)
+
+    def join(self, timeout=None):
+        print "Button Monitor thread exiting"
+        self.stop_request.set()
+        super(ButtonMonitor, self).join(timeout)
 
 def sendMessage(message):
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     try:
-        sock.connect(socket_name)
+        sock.connect(SOCKET_NAME)
         sock.send(message)
         print "Sent:     {}".format(message)
     except IOError as e:
         if e.errno == 13:
             print "{0}\nTry again using sudo".format(e)
         elif e.errno == 111:
-            print "{0}\nError connecting to socket {1}\nMake sure the server is running and is on this socket".format(e, socket_name)
+            print "{0}\nError connecting to socket {1}\nMake sure the server is running and is on this socket".format(e, SOCKET_NAME)
         else:
             print e
     except Exception as e:
@@ -101,14 +132,13 @@ def sendMessage(message):
 
 if __name__ == "__main__":
     print "Starting server"
-    if os.path.exists(socket_name):
-        os.remove(socket_name)
+    if os.path.exists(SOCKET_NAME):
+        os.remove(SOCKET_NAME)
     try:
-        server = Animator(socket_name, AnimationRequestHandler)
+        server = Animator(AnimationRequestHandler)
     except Exception as e:
         print "{0}\nError starting server:\n".format(e)
-        raise
 
-    print "Animation server is running on socket {0}".format(socket_name)
+    print "Animation server is running on socket {0}".format(SOCKET_NAME)
     print "Quit the server with CONTROL-C."
     server.serve_forever()

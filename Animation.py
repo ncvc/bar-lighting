@@ -7,8 +7,15 @@ BLUE    = [0, 0, 127]
 YELLOW  = [127, 127, 0]
 MAGENTA = [127, 0, 127]
 CYAN    = [0, 127, 127]
+COLORS  = [RED, GREEN, BLUE, YELLOW, MAGENTA, CYAN]
 
-COLORS = [RED, GREEN, BLUE, YELLOW, MAGENTA, CYAN]
+COLORWIPE      = 'colorwipe'
+BLACKOUT       = 'blackout'
+COLOR          = 'color'
+RANDOM         = 'randomchoice'
+RAINBOW        = 'rainbow'
+RAINBOWCYCLE   = 'rainbowcycle'
+TOGGLEXMASMODE = 'togglexmasmode'
 
 class Animation(object):
     def __init__(self, strip, wait):
@@ -132,6 +139,7 @@ class RandomChoice(Animation):
         self.blink_counter = 0
 
     def setup(self):
+        super(RandomChoice, self).setup()
         self.i = 0
         self.blink_counter = 0
         self.winner = random.randint(6 * self.strip.num_pixels, 9 * self.strip.num_pixels)
