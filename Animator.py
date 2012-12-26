@@ -11,7 +11,11 @@ import time
 import RPi.GPIO as GPIO
 
 SOCKET_NAME = "/tmp/thechillsocket"
-INPUT_PIN   = 8
+INPUT_PIN   = 24
+
+class States:
+    COLOR = 'color'
+    ANIMATION = 'animation'
 
 class Animator(SocketServer.UnixStreamServer, object):
     def __init__(self, handler):
@@ -27,18 +31,42 @@ class Animator(SocketServer.UnixStreamServer, object):
                               Animation.RAINBOW      : Animation.Rainbow(strip),
                               Animation.RAINBOWCYCLE : Animation.RainbowCycle(strip),
                               Animation.COLOR        : Animation.StaticColor(strip),
-                              Animation.RANDOM       : Animation.RandomChoice(strip)}
+#                              Animation.RANDOM       : Animation.RandomChoice(strip)
+}
         
+        self.dynamic_animations = [Animation.COLORWIPE,
+                                   Animation.RAINBOW,
+                                   Animation.RAINBOWCYCLE,
+                                   Animation.BLACKOUT]
+
+        self.transitions = {States.COLOR   : States.ANIMATION,
+                            States.ANIMATION : States.COLOR}
         self.stepper.start()
         self.buttonmonitor.start()
+        self.index = 0
+        self.state = States.ANIMATION
 
     def addToQueue(self, command):
         if re.search(r"^r:\d{1,3},g:\d{1,3},b:\d{1,3}$", command):
             r, g, b = [int(i.split(":")[-1]) for i in command.split(",")]
             self.animations[Animation.COLOR].setRGB(r, g, b)
             command = Animation.COLOR
+        
+        animation = None
 
-        animation = self.animations.get(command)
+        if command == 'singlepress':
+            if self.state == States.COLOR:
+                animation = self.animations[Animation.COLOR]
+            else:
+                animation = self.animations.get(self.dynamic_animations[self.index])
+                self.index  = (self.index + 1) % len(self.dynamic_animations)
+  
+        elif command == "doublepress":
+            self.state = self.transitions.get(self.state)
+            print "Changed to {0} mode".format(self.state)
+        else:
+            animation = self.animations.get(command)
+        
         if animation:
             try:        
                 self.queue.put(animation, False)
@@ -57,7 +85,7 @@ class Animator(SocketServer.UnixStreamServer, object):
 class AnimationRequestHandler(SocketServer.StreamRequestHandler):
     def handle(self):
         self.data = self.rfile.readline().strip()
-        print "Animator Received:     {}".format(self.data)
+        #print "Animator Received:     {}".format(self.data)
         self.server.addToQueue(self.data)
 
 class Stepper(threading.Thread, object):
@@ -79,7 +107,8 @@ class Stepper(threading.Thread, object):
                         self.queue.put(self.animation, False)
                     self.animation = next_animation
                     self.animation.setup()
-                    print 'Stepper retreived {0} from queue'.format(self.animation)
+                    #print 'Stepper retreived {0} from queue'.format(self.animation)
+                    print self.animation
                 except Queue.Empty:
                     pass
             
@@ -89,23 +118,43 @@ class Stepper(threading.Thread, object):
         super(Stepper, self).join(timeout)
 
 class ButtonMonitor(threading.Thread, object):
-    def __init__(self, wait=.25):
+    def __init__(self, wait=.01):
         super(ButtonMonitor, self).__init__()
         self.stop_request = threading.Event()
         self.wait = wait
         GPIO.setmode(GPIO.BOARD)
         GPIO.setup(INPUT_PIN, GPIO.IN)
+        self.buffer_length = 25
 
     def run(self):
         print "Button Monitor thread started"
-        message_sent = False
+        send_message = True
+        buffer = [False] * self.buffer_length
+        buffer_index = 0
+        num_presses = 0
         while not self.stop_request.isSet():
-            if GPIO.input(INPUT_PIN) and not message_sent:
-                sendMessage(Animation.RANDOM)
-                message_sent = True
+            input = not GPIO.input(INPUT_PIN)
+            buffer[buffer_index] = input
+            new_num_presses = self.num_clicks(buffer[buffer_index:] + buffer[:buffer_index])
+            buffer_index = (buffer_index + 1) % self.buffer_length            
+             
+            if new_num_presses == 0:
+                if num_presses == 1:
+                    sendMessage('singlepress')
+                elif num_presses == 2:
+                    sendMessage('doublepress')
+                num_presses = 0
             else:
-                message_sent = False
+                num_presses = max(num_presses, new_num_presses)
+            
             time.sleep(self.wait)
+
+    def num_clicks(self, buffer):
+        clicks = 0
+        for i in range(len(buffer) - 1):
+            if buffer[i + 1] and not buffer[i]:
+                clicks += 1
+        return clicks
 
     def join(self, timeout=None):
         print "Button Monitor thread exiting"
@@ -117,7 +166,7 @@ def sendMessage(message):
     try:
         sock.connect(SOCKET_NAME)
         sock.send(message)
-        print "Sent:     {}".format(message)
+        #print "Sent:     {}".format(message)
     except IOError as e:
         if e.errno == 13:
             print "{0}\nTry again using sudo".format(e)

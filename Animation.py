@@ -22,7 +22,8 @@ class Animation(object):
         self.strip = strip 
         self.wait = wait
         self.returns_control = False
-        
+        self.name = "Default"
+
     def setup(self):
         self.strip.blackout()
 
@@ -50,13 +51,18 @@ class Animation(object):
 
         return [r, g, b]
 
+    def __repr__(self):
+        return self.name
+
 class StaticColor(Animation):
     def __init__(self, strip, wait=.5):
         super(StaticColor, self).__init__(strip, wait=.5)
         self.r = 0
         self.g = 0
         self.b = 0
-    
+        self.i = 0
+        self.name = "color"
+ 
     def step(self):
         self.strip.setColor([self.r, self.g, self.b])
         self.strip.show()
@@ -67,6 +73,12 @@ class StaticColor(Animation):
         self.r = r
         self.g = g
         self.b = b
+    
+    def setup(self):
+        super(StaticColor, self).setup()
+        r, g, b = COLORS[self.i]
+        self.i = (self.i + 1) % len(COLORS)
+        self.setRGB(r, g, b)
 
 class Rainbow(Animation):
     def __init__(self, strip, wait=0.0001):
