@@ -9,13 +9,14 @@ import datetime
 import re
 import time
 import RPi.GPIO as GPIO
+from Colors import *
 
 SOCKET_NAME = "/tmp/thechillsocket"
 INPUT_PIN   = 24
 
 class States:
-    COLOR = 'color'
-    ANIMATION = 'animation'
+    RANDOMSELECTION = 'random selection'
+    MODESELECTION   = 'mode selection'
 
 class Animator(SocketServer.UnixStreamServer, object):
     def __init__(self, handler):
@@ -27,43 +28,62 @@ class Animator(SocketServer.UnixStreamServer, object):
         self.buttonmonitor = ButtonMonitor()
         self.xmastoggle    = False
         self.animations    = {Animation.COLORWIPE    : Animation.ColorWipe(strip),
-                              Animation.BLACKOUT     : Animation.Blackout(strip),
                               Animation.RAINBOW      : Animation.Rainbow(strip),
                               Animation.RAINBOWCYCLE : Animation.RainbowCycle(strip),
-                              Animation.COLOR        : Animation.StaticColor(strip),
-#                              Animation.RANDOM       : Animation.RandomChoice(strip)
+                              Animation.STATICRED    : Animation.StaticColor(RED, strip),
+                              Animation.STATICGREEN  : Animation.StaticColor(GREEN, strip),
+                              Animation.STATICBLUE   : Animation.StaticColor(BLUE, strip),
+                              Animation.STATICMAGENTA: Animation.StaticColor(MAGENTA, strip),
+                              Animation.STATICCYAN   : Animation.StaticColor(CYAN, strip),
+                              Animation.STATICWHITE  : Animation.StaticColor(WHITE, strip),
+                              Animation.BLACKOUT     : Animation.StaticColor(BLACKOUT, strip),
+                              Animation.RANDOM       : Animation.RandomChoice(strip),
+                              Animation.BLINKONCE    : Animation.Blink(1, strip),
+                              Animation.BLINKTWICE   : Animation.Blink(2, strip)
 }
         
         self.dynamic_animations = [Animation.COLORWIPE,
                                    Animation.RAINBOW,
                                    Animation.RAINBOWCYCLE,
+                                   Animation.STATICRED,
+                                   Animation.STATICGREEN, 
+                                   Animation.STATICBLUE,
+                                   Animation.STATICMAGENTA,
+                                   Animation.STATICCYAN,
+                                   Animation.STATICWHITE,
                                    Animation.BLACKOUT]
 
-        self.transitions = {States.COLOR   : States.ANIMATION,
-                            States.ANIMATION : States.COLOR}
+        self.transitions = {States.RANDOMSELECTION : (States.MODESELECTION,
+                                                      Animation.BLINKTWICE),
+                            States.MODESELECTION   : (States.RANDOMSELECTION,
+                                                      Animation.BLINKONCE)}
         self.stepper.start()
         self.buttonmonitor.start()
-        self.index = 0
-        self.state = States.ANIMATION
+        self.animation_index = 0
+        self.state = States.MODESELECTION
+
+        self.addToQueue('singlepress')
 
     def addToQueue(self, command):
         if re.search(r"^r:\d{1,3},g:\d{1,3},b:\d{1,3}$", command):
             r, g, b = [int(i.split(":")[-1]) for i in command.split(",")]
-            self.animations[Animation.COLOR].setRGB(r, g, b)
+            self.animations[Animation.COLOR].setColor(Color('Custom', r, g, b))
             command = Animation.COLOR
         
         animation = None
 
         if command == 'singlepress':
-            if self.state == States.COLOR:
-                animation = self.animations[Animation.COLOR]
+            if self.state == States.RANDOMSELECTION:
+                animation = self.animations[Animation.RANDOM]
             else:
-                animation = self.animations.get(self.dynamic_animations[self.index])
-                self.index  = (self.index + 1) % len(self.dynamic_animations)
+                animation = self.animations.get(self.dynamic_animations[self.animation_index])
+                self.animation_index  = (self.animation_index + 1) % len(self.dynamic_animations)
   
         elif command == "doublepress":
-            self.state = self.transitions.get(self.state)
-            print "Changed to {0} mode".format(self.state)
+            state, alert = self.transitions.get(self.state)
+            self.state = state
+            print "Changed to {0}".format(self.state)
+            animation = self.animations.get(alert)
         else:
             animation = self.animations.get(command)
         
@@ -128,16 +148,14 @@ class ButtonMonitor(threading.Thread, object):
 
     def run(self):
         print "Button Monitor thread started"
-        send_message = True
         buffer = [False] * self.buffer_length
         buffer_index = 0
         num_presses = 0
         while not self.stop_request.isSet():
             input = not GPIO.input(INPUT_PIN)
-            buffer[buffer_index] = input
             new_num_presses = self.num_clicks(buffer[buffer_index:] + buffer[:buffer_index])
-            buffer_index = (buffer_index + 1) % self.buffer_length            
-             
+            buffer[buffer_index] = input
+            buffer_index = (buffer_index + 1) % self.buffer_length
             if new_num_presses == 0:
                 if num_presses == 1:
                     sendMessage('singlepress')
@@ -153,6 +171,8 @@ class ButtonMonitor(threading.Thread, object):
         clicks = 0
         for i in range(len(buffer) - 1):
             if buffer[i + 1] and not buffer[i]:
+                #print '\n'
+                #print buffer
                 clicks += 1
         return clicks
 

@@ -1,0 +1,1 @@
+sudo python /home/pi/bar_lighting/Animator.py &
