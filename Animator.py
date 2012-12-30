@@ -236,9 +236,10 @@ if __name__ == "__main__":
         button_window = Toplevel()
         img = PhotoImage(file="easy_button.gif")
         easy_button = Button(button_window, image=img)
-        button_window.bind("<Button-1>", lambda e: server.processCommand(ButtonEvent.SINGLEPRESS))
-        button_window.bind("<Double-Button-1>", lambda e: server.processCommand(ButtonEvent.DOUBLEPRESS))        
         easy_button.pack()
+        easy_button.bind("<Button-1>", lambda e: server.processCommand(ButtonEvent.SINGLEPRESS))
+        easy_button.bind("<Double-Button-1>", lambda e: server.processCommand(ButtonEvent.DOUBLEPRESS))        
+
 
     mainloop()
 
