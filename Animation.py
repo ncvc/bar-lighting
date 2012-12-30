@@ -1,38 +1,21 @@
-import time
 import random
 import Colors
 from ModCounter import ModCounter
 
-#string constants
-COLORWIPE      = 'colorwipe'
-BLACKOUT       = 'blackout'
-COLOR          = 'color'
-STATICRED      = 'staticred'
-STATICBLUE     = 'staticblue'
-STATICGREEN    = 'staticgreen'
-STATICMAGENTA  = 'staticmagenta'
-STATICCYAN     = 'staticcyan'
-STATICWHITE    = 'staticwhite'
-BLACKOUT       = 'blackout'
-RANDOM         = 'randomchoice'
-RAINBOW        = 'rainbow'
-RAINBOWCYCLE   = 'rainbowcycle'
-BLINKONCE      = 'blinkonce'
-BLINKTWICE     = 'blinktwice'
 
-class Animation(object):
-    def __init__(self, strip, wait):
-        self.strip = strip 
+# Base Animation class that implements nearly all necessary functionality.
+# Implementing classes must override the step() method
+class BaseAnimation(object):
+    def __init__(self, wait):
         self.wait = wait
         self.name = "Default"
         self.returns_control = False
 
-    def setup(self):
-        self.strip.blackout()
+    def setup(self, strip):
+        strip.blackout()
 
-    def step(self):
-        #Override this method in subclasses
-        return True
+    def step(self, strip):
+        raise NotImplementedError("Do not use BaseAnimation directly, use a subclass with step() implemented")
 
     def wheel(self, position, random=False):
         r = 0
@@ -57,98 +40,94 @@ class Animation(object):
     def __repr__(self):
         return self.name
 
-class StaticColor(Animation):
-    def __init__(self, color, strip, wait=.5):
-        super(StaticColor, self).__init__(strip, wait=.5)
+
+class StaticColor(BaseAnimation):
+    def __init__(self, color, wait=.5):
+        super(StaticColor, self).__init__(wait=wait)
         self.color = color
 
-    def step(self):
-        self.strip.setColor(self.color.rgb())
-        self.strip.show()
-        time.sleep(self.wait)
+    def step(self, strip):
+        strip.setColor(self.color.rgb())
         return True
 
     def __repr__(self):
         return str(self.color)
 
-class Rainbow(Animation):
-    def __init__(self, strip, wait=0.0001):
-        super(Rainbow, self).__init__(strip, wait)
+
+class Rainbow(BaseAnimation):
+    def __init__(self, wait=0.01):
+        super(Rainbow, self).__init__(wait)
         self.counter = ModCounter(384)
         self.name = "Rainbow"
 
-    def step(self):
-        for i in range(self.strip.num_pixels):
-            self.strip.setPixelColor(i, self.wheel((i + self.counter.i) % 384))
-            self.strip.show()
+    def step(self, strip):
+        for i in range(strip.num_pixels):
+            strip.setPixelColor(i, self.wheel((i + self.counter.i) % 384))
         self.counter += 5
-        time.sleep(self.wait)
         return True
 
-class RainbowCycle(Animation):
-    def __init__(self, strip, wait=0.0001):
-        super(RainbowCycle, self).__init__(strip, wait)
+
+class RainbowCycle(BaseAnimation):
+    def __init__(self, wait=0.01):
+        super(RainbowCycle, self).__init__(wait)
         self.counter = ModCounter(384 * 5)
         self.name = "Rainbow Cycle"
 
-    def step(self):
-        for i in range(self.strip.num_pixels):
-            self.strip.setPixelColor(i, self.wheel(((i * 384 / self.strip.num_pixels) + self.counter.i) % 384))
-            self.strip.show()
+    def step(self, strip):
+        for i in range(strip.num_pixels):
+            strip.setPixelColor(i, self.wheel(((i * 384 / strip.num_pixels) + self.counter.i) % 384))
         self.counter += 5
-        time.sleep(self.wait)
         return True
 
-class ColorWipe(Animation):
-    def __init__(self, strip, wait=.01):
-        super(ColorWipe, self).__init__(strip, wait)
-        self.counter = ModCounter(self.strip.num_pixels)
+
+class ColorWipe(BaseAnimation):
+    def __init__(self, wait=.01):
+        super(ColorWipe, self).__init__(wait)
         self.color = Colors.BLACKOUT
         self.name = "Color Wipe"
 
-    def setup(self):
-        super(ColorWipe, self).setup()
+    def setup(self, strip):
+        super(ColorWipe, self).setup(strip)
+        self.counter = ModCounter(strip.num_pixels)
         self.counter.reset()
 
-    def step(self):
+    def step(self, strip):
         if self.counter == 0:
             rand = self.color
             while rand == self.color:
                 rand = random.choice(Colors.COLORS) 
             self.color = rand
-        self.strip.setPixelColor(self.counter.i, self.color.rgb())
-        self.strip.show()
+        strip.setPixelColor(self.counter.i, self.color.rgb())
         self.counter += 1
-        time.sleep(self.wait)
         return self.counter == 0
 
-class Blink(Animation):
-    def __init__(self, num_blinks, strip, wait=.25):
-        super(Blink, self).__init__(strip, wait)
+
+class Blink(BaseAnimation):
+    def __init__(self, num_blinks, wait=.25):
+        super(Blink, self).__init__(wait)
         self.i = 0
         self.num_blinks = num_blinks
         self.returns_control = True
         self.name = "Blink"
 
-    def setup(self):
-        super(Blink, self).setup()
+    def setup(self, strip):
+        super(Blink, self).setup(strip)
         self.i = 0
 
-    def step(self):
+    def step(self, strip):
         if self.i <= self.num_blinks * 2:
             if self.i % 2 == 0:
-                self.strip.setColor([0,0,0])
+                strip.setColor([0,0,0])
             else:
-                self.strip.setColor(WHITE.rgb())
+                strip.setColor(Colors.WHITE.rgb())
 
-        self.strip.show()
         self.i += 1
-        time.sleep(self.wait)
         return self.i > self.num_blinks * 2
 
-class RandomChoice(Animation):
-    def __init__(self, strip, wait=.02):
-        super(RandomChoice, self).__init__(strip, wait)
+
+class RandomChoice(BaseAnimation):
+    def __init__(self, wait=.02):
+        super(RandomChoice, self).__init__(wait)
         self.i = 0
         self.returns_control = True
         self.winner = None
@@ -158,33 +137,95 @@ class RandomChoice(Animation):
         self.blink_counter = 0
         self.name = "Random Choice"
 
-    def setup(self):
-        super(RandomChoice, self).setup()
+    def setup(self, strip):
+        super(RandomChoice, self).setup(strip)
         self.i = 0
         self.blink_counter = 0
-        self.winner = random.randint(6 * self.strip.num_pixels, 9 * self.strip.num_pixels)
+        self.winner = random.randint(6 * strip.num_pixels, 9 * strip.num_pixels)
         self.wait = .02
-        self.color = random.choice(COLORS).rgb()
+        self.color = random.choice(Colors.COLORS).rgb()
 
-    def step(self):
+    def step(self, strip):
         if self.winner - self.i < 20 and self.wait < self.winner:
             self.wait = self.wait * 1.2
         if self.i < self.winner:
-            self.strip.setPixelColor(self.i - 1, [0,0,0])
-            self.strip.setPixelColor(self.i, self.color)
+            strip.setPixelColor(self.i - 1, [0,0,0])
+            strip.setPixelColor(self.i, self.color)
             self.i += 1
         else:
             self.wait = 0.3
-            self.strip.setPixelColor(self.i - 1, [0,0,0])
+            strip.setPixelColor(self.i - 1, [0,0,0])
             if self.toggle:
                 self.toggle = False
-                self.strip.setPixelColor(self.i , [0,0,0])
+                strip.setPixelColor(self.i , [0,0,0])
             else:
                 self.toggle = True
-                self.strip.setPixelColor(self.i, [127, 127, 127])
+                strip.setPixelColor(self.i, [127, 127, 127])
             self.blink_counter += 1
 
-        self.strip.show()
-        time.sleep(self.wait)
         return self.blink_counter > 2 * self.num_blinks
 
+
+class MusicReactive(BaseAnimation):
+    def __init__(self):
+        super(MusicReactive, self).__init__(0)
+        self.i = 0
+        self.returns_control = True
+        self.name = "MusicReactive"
+
+    def setup(self, strip):
+        super(MusicReactive, self).setup(strip)
+        self.i = 0
+
+    def step(self, strip):
+        strip.setColor([self.i] * 3)
+
+        self.i += 1
+        return False
+
+
+# String constants
+COLORWIPE      = 'colorwipe'
+BLACKOUT       = 'blackout'
+COLOR          = 'color'
+STATICRED      = 'staticred'
+STATICBLUE     = 'staticblue'
+STATICGREEN    = 'staticgreen'
+STATICMAGENTA  = 'staticmagenta'
+STATICCYAN     = 'staticcyan'
+STATICWHITE    = 'staticwhite'
+BLACKOUT       = 'blackout'
+RANDOM         = 'randomchoice'
+RAINBOW        = 'rainbow'
+RAINBOWCYCLE   = 'rainbowcycle'
+BLINKONCE      = 'blinkonce'
+BLINKTWICE     = 'blinktwice'
+MUSIC          = 'music'
+
+DYNAMIC_ANIMATIONS = [COLORWIPE,
+                      RAINBOW,
+                      RAINBOWCYCLE,
+                      STATICRED,
+                      STATICGREEN,
+                      STATICBLUE,
+                      STATICMAGENTA,
+                      STATICCYAN,
+                      STATICWHITE,
+                      BLACKOUT,
+                      MUSIC]
+
+ANIMATIONS    = {COLORWIPE    : ColorWipe(),
+                 RAINBOW      : Rainbow(),
+                 RAINBOWCYCLE : RainbowCycle(),
+                 STATICRED    : StaticColor(Colors.RED),
+                 STATICGREEN  : StaticColor(Colors.GREEN),
+                 STATICBLUE   : StaticColor(Colors.BLUE),
+                 STATICMAGENTA: StaticColor(Colors.MAGENTA),
+                 STATICCYAN   : StaticColor(Colors.CYAN),
+                 STATICWHITE  : StaticColor(Colors.WHITE),
+                 BLACKOUT     : StaticColor(Colors.BLACKOUT),
+                 RANDOM       : RandomChoice(),
+                 BLINKONCE    : Blink(1),
+                 BLINKTWICE   : Blink(2),
+                 COLOR        : StaticColor(Colors.CUSTOM),
+                 MUSIC        : MusicReactive()}

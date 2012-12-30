@@ -7,7 +7,6 @@ import os.path
 import socket
 import re
 import time
-import Colors
 import sys
 from ModCounter import ModCounter
 from Tkinter import mainloop
@@ -52,77 +51,53 @@ class Animator(StreamServer, object):
         else: 
             strip          = Strip.Strip(32)
         self.strip         = strip
-        self.stepper       = Stepper(self.queue, Animation.Animation(strip, 0.01))
         self.xmastoggle    = False
-        self.animations    = {Animation.COLORWIPE    : Animation.ColorWipe(strip),
-                              Animation.RAINBOW      : Animation.Rainbow(strip),
-                              Animation.RAINBOWCYCLE : Animation.RainbowCycle(strip),
-                              Animation.STATICRED    : Animation.StaticColor(Colors.RED, strip),
-                              Animation.STATICGREEN  : Animation.StaticColor(Colors.GREEN, strip),
-                              Animation.STATICBLUE   : Animation.StaticColor(Colors.BLUE, strip),
-                              Animation.STATICMAGENTA: Animation.StaticColor(Colors.MAGENTA, strip),
-                              Animation.STATICCYAN   : Animation.StaticColor(Colors.CYAN, strip),
-                              Animation.STATICWHITE  : Animation.StaticColor(Colors.WHITE, strip),
-                              Animation.BLACKOUT     : Animation.StaticColor(Colors.BLACKOUT, strip),
-                              Animation.RANDOM       : Animation.RandomChoice(strip),
-                              Animation.BLINKONCE    : Animation.Blink(1, strip),
-                              Animation.BLINKTWICE   : Animation.Blink(2, strip),
-                              Animation.COLOR        : Animation.StaticColor(Colors.CUSTOM, strip)}
-
-        self.dynamic_animations = [Animation.COLORWIPE,
-                                   Animation.RAINBOW,
-                                   Animation.RAINBOWCYCLE,
-                                   Animation.STATICRED,
-                                   Animation.STATICGREEN, 
-                                   Animation.STATICBLUE,
-                                   Animation.STATICMAGENTA,
-                                   Animation.STATICCYAN,
-                                   Animation.STATICWHITE,
-                                   Animation.BLACKOUT]
 
         #transitions keys are for current state
         #transitions values are a tuple of the next state and Animation to be played, or None
         self.transitions = {States.RANDOMSELECTION : (States.MODESELECTION, Animation.BLINKTWICE),
                             States.MODESELECTION   : (States.RANDOMSELECTION, Animation.BLINKONCE)}
 
-        self.counter     = ModCounter(len(self.dynamic_animations))
+        self.counter     = ModCounter(len(Animation.DYNAMIC_ANIMATIONS))
         self.state       = States.MODESELECTION
 
+        self.stepper = Stepper(self.queue, Animation.ANIMATIONS[Animation.BLACKOUT], strip)
         self.stepper.start()
 
         if GPIO_AVAILABLE:
             self.buttonmonitor = ButtonMonitor()
             self.buttonmonitor.start()
 
-        self.processCommand(ButtonEvent.SINGLEPRESS)
+        # self.processCommand(ButtonEvent.SINGLEPRESS)
+        self.processCommand(Animation.MUSIC)
 
     def processCommand(self, command):
         animation = None
 
         if re.search(r"^r:\d{1,3},g:\d{1,3},b:\d{1,3}$", command):
             r, g, b = [int(i.split(":")[-1]) for i in command.split(",")]
-            animation = self.animations[Animation.COLOR]
+            animation = Animation.ANIMATIONS[Animation.COLOR]
             animation.color.setrgb(r, g, b)
 
         elif command == ButtonEvent.SINGLEPRESS:
             if self.state == States.RANDOMSELECTION:
-                animation = self.animations[Animation.RANDOM]
+                animation = Animation.ANIMATIONS[Animation.RANDOM]
             else:
-                animation = self.animations.get(self.dynamic_animations[self.counter.i])
+                animation = Animation.ANIMATIONS.get(Animation.DYNAMIC_ANIMATIONS[self.counter.i])
                 self.counter += 1
 
         elif command == ButtonEvent.DOUBLEPRESS:
             state, anim = self.transitions.get(self.state)
             self.state = state
             print "Changed to {0}".format(self.state)
-            animation = self.animations.get(anim)
+            animation = Animation.ANIMATIONS.get(anim)
 
         elif command == ControlCommand.TOGGLEXMASMODE:
             self.xmastoggle = not self.xmastoggle
             self.strip.enableXmasMode(self.xmastoggle)
 
         else:
-            animation = self.animations.get(command)
+            animation = Animation.ANIMATIONS.get(command)
 
         if animation:
             try:        
@@ -142,24 +117,29 @@ class AnimationRequestHandler(SocketServer.StreamRequestHandler):
         self.server.processCommand(self.data)
 
 class Stepper(threading.Thread, object):
-    def __init__(self, queue, anim):
+    def __init__(self, queue, anim, strip):
         super(Stepper, self).__init__()
         self.stop_request = threading.Event()
         self.queue        = queue
         self.animation    = anim
+        self.strip        = strip
         self.previous_animation = anim
+
+        anim.setup(strip)
 
     def run(self):
         print "Stepper thread started"
         while not self.stop_request.isSet():
-            done = self.animation.step()
+            done = self.animation.step(self.strip)
+            self.strip.show()
+            time.sleep(self.animation.wait)
             if done:
                 try:
                     next_animation = self.queue.get(False)
                     if next_animation.returns_control:
                         self.queue.put(self.animation, False)
                     self.animation = next_animation
-                    self.animation.setup()
+                    self.animation.setup(self.strip)
                     debugprint('Stepper retreived {0} from queue'.format(self.animation))
                     print self.animation
                 except Queue.Empty:

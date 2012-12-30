@@ -10,7 +10,7 @@ from Tkinter import Canvas, Tk, mainloop
 DEV_PATH = '/dev/spidev0.0'
 MAX_BRIGHTNESS = 127
 DEFAULT_LED_SIZE = 40
-
+SHOW_SLEEP_TIME = 0.0000001
 
 # Base strip class that implements nearly all necessary functionality.
 # Implementing classes must override the show() method
@@ -80,7 +80,7 @@ class Strip(BaseStrip):
         self.device.write(bytearray(b'\x00\x00\x00'))  # zero fill the last to prevent stray colors at the end
         self.device.write(bytearray(b'\x00'))
         self.device.flush()
-        time.sleep(0.0000000001)
+        time.sleep(SHOW_SLEEP_TIME)
 
 
 # Class for an on-screen testing strip
@@ -99,6 +99,7 @@ class TestingStrip(BaseStrip):
             color = '#%02x%02x%02x' % tuple([(255 * c) / MAX_BRIGHTNESS for c in self.buffer[i]])
             self.canvas.itemconfigure(self.leds[i], fill=color)
         self.canvas.update()
+        time.sleep(SHOW_SLEEP_TIME)
 
 
 if __name__ == '__main__':
