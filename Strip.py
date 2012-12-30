@@ -11,14 +11,15 @@ MAX_BRIGHTNESS = 127
 class Strip:
     def __init__(self, num_pixels, device_name=DEV_PATH):
         self.num_pixels = num_pixels
-        self.xmasMode = False
-        self.device = file(device_name, "wb")
-        self.buffer = bytearray(num_pixels * 3)
+        self.xmasMode   = False
+        self.device     = file(device_name, "wb")
+        self.buffer     = bytearray(num_pixels * 3)
         self.show()
 
-
     def setPixelColor(self, pixel, color):
-        pixel = pixel % self.num_pixels
+        if pixel >= self.num_pixels:
+            raise Exception("Invalid pixel index {0}".format(pixel))
+
         color = [max(0, min(i, MAX_BRIGHTNESS)) for i in color]
 
         if self.xmasMode:

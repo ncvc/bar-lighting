@@ -1,7 +1,9 @@
 import time
 import random
-from Colors import *
+import Colors
+import ModCounter
 
+#string constants
 COLORWIPE      = 'colorwipe'
 BLACKOUT       = 'blackout'
 COLOR          = 'color'
@@ -15,7 +17,6 @@ BLACKOUT       = 'blackout'
 RANDOM         = 'randomchoice'
 RAINBOW        = 'rainbow'
 RAINBOWCYCLE   = 'rainbowcycle'
-TOGGLEXMASMODE = 'togglexmasmode'
 BLINKONCE      = 'blinkonce'
 BLINKTWICE     = 'blinktwice'
 
@@ -23,8 +24,8 @@ class Animation(object):
     def __init__(self, strip, wait):
         self.strip = strip 
         self.wait = wait
-        self.returns_control = False
         self.name = "Default"
+        self.returns_control = False
 
     def setup(self):
         self.strip.blackout()
@@ -73,53 +74,53 @@ class StaticColor(Animation):
 class Rainbow(Animation):
     def __init__(self, strip, wait=0.0001):
         super(Rainbow, self).__init__(strip, wait)
-        self.j = 0
+        self.counter = ModCounter(384)
         self.name = "Rainbow"
         
     def step(self):
         for i in range(self.strip.num_pixels):
-            self.strip.setPixelColor(i, self.wheel((i + self.j) % 384))
+            self.strip.setPixelColor(i, self.wheel((i + self.counter.i) % 384))
             self.strip.show()
-        self.j = (self.j + 5)% 384
+        self.counter += 5
         time.sleep(self.wait)
         return True
 
 class RainbowCycle(Animation):
     def __init__(self, strip, wait=0.0001):
         super(RainbowCycle, self).__init__(strip, wait)
-        self.j = 0
+        self.counter = ModCounter(384 * 5)
         self.name = "Rainbow Cycle"
 
     def step(self):
         for i in range(self.strip.num_pixels):
-            self.strip.setPixelColor(i, self.wheel(((i * 384 / self.strip.num_pixels) + self.j) % 384))
+            self.strip.setPixelColor(i, self.wheel(((i * 384 / self.strip.num_pixels) + self.counter.i) % 384))
             self.strip.show()
-        self.j = (self.j + 5)  % (384 * 5)
+        self.counter += 5
         time.sleep(self.wait)
         return True
  
 class ColorWipe(Animation):
     def __init__(self, strip, wait=.01):
         super(ColorWipe, self).__init__(strip, wait)
-        self.i = 0
-        self.color = BLACKOUT
+        self.counter = ModCounter(self.strip.num_pixels)
+        self.color = Colors.BLACKOUT
         self.name = "Color Wipe"
 
     def setup(self):
         super(ColorWipe, self).setup()
-        self.i = 0
+        self.counter.reset()
 
     def step(self):
-        if self.i == 0:
+        if self.counter == 0:
             rand = self.color
             while rand == self.color:
-                rand = random.choice(COLORS) 
+                rand = random.choice(Colors.COLORS) 
             self.color = rand
-        self.strip.setPixelColor(self.i, self.color.rgb())
+        self.strip.setPixelColor(self.counter.i, self.color.rgb())
         self.strip.show()
-        self.i = (self.i + 1) % self.strip.num_pixels
+        self.counter += 1
         time.sleep(self.wait)
-        return self.i == 0
+        return self.counter == 0
 
 class Blink(Animation):
     def __init__(self, num_blinks, strip, wait=.25):

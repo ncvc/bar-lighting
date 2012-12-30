@@ -9,14 +9,21 @@ import datetime
 import re
 import time
 import RPi.GPIO as GPIO
-from Colors import *
 
 SOCKET_NAME = "/tmp/thechillsocket"
 INPUT_PIN   = 24
+DEBUG = False
 
 class States:
     RANDOMSELECTION = 'random selection'
     MODESELECTION   = 'mode selection'
+
+class ButtonEvent:
+    SINGLEPRESS = 'singlepress'
+    DOUBLEPRESS = 'doublepress'
+
+class ControlCommand:
+    TOGGLEXMASMODE = 'togglexmasmode'
 
 class Animator(SocketServer.UnixStreamServer, object):
     def __init__(self, handler):
@@ -30,17 +37,17 @@ class Animator(SocketServer.UnixStreamServer, object):
         self.animations    = {Animation.COLORWIPE    : Animation.ColorWipe(strip),
                               Animation.RAINBOW      : Animation.Rainbow(strip),
                               Animation.RAINBOWCYCLE : Animation.RainbowCycle(strip),
-                              Animation.STATICRED    : Animation.StaticColor(RED, strip),
-                              Animation.STATICGREEN  : Animation.StaticColor(GREEN, strip),
-                              Animation.STATICBLUE   : Animation.StaticColor(BLUE, strip),
-                              Animation.STATICMAGENTA: Animation.StaticColor(MAGENTA, strip),
-                              Animation.STATICCYAN   : Animation.StaticColor(CYAN, strip),
-                              Animation.STATICWHITE  : Animation.StaticColor(WHITE, strip),
-                              Animation.BLACKOUT     : Animation.StaticColor(BLACKOUT, strip),
+                              Animation.STATICRED    : Animation.StaticColor(Colors.RED, strip),
+                              Animation.STATICGREEN  : Animation.StaticColor(Colors.GREEN, strip),
+                              Animation.STATICBLUE   : Animation.StaticColor(Colors.BLUE, strip),
+                              Animation.STATICMAGENTA: Animation.StaticColor(Colors.MAGENTA, strip),
+                              Animation.STATICCYAN   : Animation.StaticColor(Colors.CYAN, strip),
+                              Animation.STATICWHITE  : Animation.StaticColor(Colors.WHITE, strip),
+                              Animation.BLACKOUT     : Animation.StaticColor(Colors.BLACKOUT, strip),
                               Animation.RANDOM       : Animation.RandomChoice(strip),
                               Animation.BLINKONCE    : Animation.Blink(1, strip),
-                              Animation.BLINKTWICE   : Animation.Blink(2, strip)
-}
+                              Animation.BLINKTWICE   : Animation.Blink(2, strip),
+                              Animation.COLOR        : Animation.StaticColor(Colors.CUSTOM, strip)}
         
         self.dynamic_animations = [Animation.COLORWIPE,
                                    Animation.RAINBOW,
@@ -53,37 +60,43 @@ class Animator(SocketServer.UnixStreamServer, object):
                                    Animation.STATICWHITE,
                                    Animation.BLACKOUT]
 
-        self.transitions = {States.RANDOMSELECTION : (States.MODESELECTION,
-                                                      Animation.BLINKTWICE),
-                            States.MODESELECTION   : (States.RANDOMSELECTION,
-                                                      Animation.BLINKONCE)}
+        #transitions keys are for current state
+        #transitions values are a tuple of the next state and Animation to be played, or None
+        self.transitions = {States.RANDOMSELECTION : (States.MODESELECTION, Animation.BLINKTWICE),
+                            States.MODESELECTION   : (States.RANDOMSELECTION, Animation.BLINKONCE)}
+
+        self.counter     = ModCounter(len(self.dynamic_animations))
+        self.state       = States.MODESELECTION
+
         self.stepper.start()
         self.buttonmonitor.start()
-        self.animation_index = 0
-        self.state = States.MODESELECTION
+        self.processCommand(ButtonEvent.SINGLEPRESS)
 
-        self.addToQueue('singlepress')
-
-    def addToQueue(self, command):
-        if re.search(r"^r:\d{1,3},g:\d{1,3},b:\d{1,3}$", command):
-            r, g, b = [int(i.split(":")[-1]) for i in command.split(",")]
-            self.animations[Animation.COLOR].setColor(Color('Custom', r, g, b))
-            command = Animation.COLOR
-        
+    def processCommand(self, command):
         animation = None
 
-        if command == 'singlepress':
+        if re.search(r"^r:\d{1,3},g:\d{1,3},b:\d{1,3}$", command):
+            r, g, b = [int(i.split(":")[-1]) for i in command.split(",")]
+            animation = self.animations[Animation.COLOR]
+            animation.color.setrgb(r, g, b)
+
+        elif command == ButtonEvent.SINGLEPRESS:
             if self.state == States.RANDOMSELECTION:
                 animation = self.animations[Animation.RANDOM]
             else:
-                animation = self.animations.get(self.dynamic_animations[self.animation_index])
-                self.animation_index  = (self.animation_index + 1) % len(self.dynamic_animations)
+                animation = self.animations.get(self.dynamic_animations[self.counter.i])
+                self.counter += 1
   
-        elif command == "doublepress":
-            state, alert = self.transitions.get(self.state)
+        elif command == ButtonEvent.DOUBLEPRESS:
+            state, anim = self.transitions.get(self.state)
             self.state = state
             print "Changed to {0}".format(self.state)
-            animation = self.animations.get(alert)
+            animation = self.animations.get(anim)
+
+        elif command == ControlCommand.TOGGLEXMASMODE:
+            self.xmastoggle = not self.xmastoggle
+            self.strip.enableXmasMode(self.xmastoggle)
+
         else:
             animation = self.animations.get(command)
         
@@ -92,10 +105,6 @@ class Animator(SocketServer.UnixStreamServer, object):
                 self.queue.put(animation, False)
             except Queue.Full:
                 pass
-
-        elif command == Animation.TOGGLEXMASMODE:
-            self.xmastoggle = not self.xmastoggle
-            self.strip.enableXmasMode(self.xmastoggle)
             
     def shutdown(self):
         self.stepper.join()
@@ -105,8 +114,8 @@ class Animator(SocketServer.UnixStreamServer, object):
 class AnimationRequestHandler(SocketServer.StreamRequestHandler):
     def handle(self):
         self.data = self.rfile.readline().strip()
-        #print "Animator Received:     {}".format(self.data)
-        self.server.addToQueue(self.data)
+        debugprint "Animator Received:     {}".format(self.data)
+        self.server.processCommand(self.data)
 
 class Stepper(threading.Thread, object):
     def __init__(self, queue, anim):
@@ -127,7 +136,7 @@ class Stepper(threading.Thread, object):
                         self.queue.put(self.animation, False)
                     self.animation = next_animation
                     self.animation.setup()
-                    #print 'Stepper retreived {0} from queue'.format(self.animation)
+                    debugprint 'Stepper retreived {0} from queue'.format(self.animation)
                     print self.animation
                 except Queue.Empty:
                     pass
@@ -142,25 +151,26 @@ class ButtonMonitor(threading.Thread, object):
         super(ButtonMonitor, self).__init__()
         self.stop_request = threading.Event()
         self.wait = wait
+        self.buffer_length = 25
+
         GPIO.setmode(GPIO.BOARD)
         GPIO.setup(INPUT_PIN, GPIO.IN)
-        self.buffer_length = 25
 
     def run(self):
         print "Button Monitor thread started"
         buffer = [False] * self.buffer_length
-        buffer_index = 0
+        counter = ModCounter(self.buffer_length)
         num_presses = 0
         while not self.stop_request.isSet():
             input = not GPIO.input(INPUT_PIN)
-            new_num_presses = self.num_clicks(buffer[buffer_index:] + buffer[:buffer_index])
-            buffer[buffer_index] = input
-            buffer_index = (buffer_index + 1) % self.buffer_length
+            new_num_presses = self.num_clicks(buffer[counter.i:] + buffer[:counter.i])
+            buffer[counter.i] = input
+            counter += 1
             if new_num_presses == 0:
                 if num_presses == 1:
-                    sendMessage('singlepress')
+                    sendMessage(ButtonEvent.SINGLEPRESS)
                 elif num_presses == 2:
-                    sendMessage('doublepress')
+                    sendMessage(ButtonEvent.DOUBLEPRESS)
                 num_presses = 0
             else:
                 num_presses = max(num_presses, new_num_presses)
@@ -171,8 +181,6 @@ class ButtonMonitor(threading.Thread, object):
         clicks = 0
         for i in range(len(buffer) - 1):
             if buffer[i + 1] and not buffer[i]:
-                #print '\n'
-                #print buffer
                 clicks += 1
         return clicks
 
@@ -186,7 +194,7 @@ def sendMessage(message):
     try:
         sock.connect(SOCKET_NAME)
         sock.send(message)
-        #print "Sent:     {}".format(message)
+        debugprint "Sent:     {}".format(message)
     except IOError as e:
         if e.errno == 13:
             print "{0}\nTry again using sudo".format(e)
@@ -198,6 +206,10 @@ def sendMessage(message):
         print e
     finally:
         sock.close()
+
+def debugprint(msg):
+    if DEBUG:
+        print msg
 
 if __name__ == "__main__":
     print "Starting server"

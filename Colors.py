@@ -7,7 +7,12 @@ class Color(object):
 
     def rgb(self):
         return [self.r, self.g, self.b]
-    
+
+    def setrgb(self, r, g, b):
+        self.r = r
+        self.g = g
+        self.b = b
+            
     def __repr__(self):
         return "{0}, R: {1} G: {2} B: {3}".format(self.name, self.r, self.g, self.b)
 
@@ -49,6 +54,9 @@ class Blackout(Color):
     def __init__(self):
         super(Blackout, self).__init__('Blackout', 0, 0, 0)
 
+class Custom(Color):
+    def __init__(self):
+        super(Custom, self).__init__('Custom', 0, 0, 0)
 
 RED      = Red()
 GREEN    = Green()
@@ -58,5 +66,6 @@ YELLOW   = Yellow()
 CYAN     = Cyan()
 WHITE    = White()
 BLACKOUT = Blackout()
+CUSTOM   = Custom()
 
 COLORS = [RED, GREEN, BLUE, MAGENTA, YELLOW, CYAN, WHITE]
