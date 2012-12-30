@@ -8,21 +8,33 @@ import socket
 import re
 import time
 import sys
+import argparse
 from ModCounter import ModCounter
 from Tkinter import mainloop, Toplevel, PhotoImage, Button
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-v", "--verbose", help="show the debug statements", action="store_true")
+parser.add_argument("-s", "--simulate", help="run in simulation", action="store_true")
+args = parser.parse_args()
+
+DEBUG = args.verbose
+SIMULATE = args.simulate
+
+def debugprint(msg):
+    if DEBUG:
+        print msg
 
 GPIO_AVAILABLE = True
 try:
     import RPi.GPIO as GPIO
 except ImportError:
     GPIO_AVAILABLE = False
-    print "Failed to import RPi.GPIO, continuing in hopes that we don't need it"
+    debugprint("Failed to import RPi.GPIO, continuing in hopes that we don't need it")
 
 SOCKET_NAME = "/tmp/thechillsocket"
 INPUT_PIN   = 24
-DEBUG = False
 
-NO_STRIP_ATTACHED = False
+NO_STRIP_ATTACHED = SIMULATE
 
 try:
     StreamServer = SocketServer.UnixStreamServer
@@ -74,7 +86,7 @@ class Animator(StreamServer, object):
         #self.processCommand(Animation.MUSIC)
 
     def processCommand(self, command):
-        debugprint(command)
+        debugprint('Processing command: {0}'.format(command))
         animation = None
 
         if re.search(r"^r:\d{1,3},g:\d{1,3},b:\d{1,3}$", command):
@@ -131,7 +143,7 @@ class Stepper(threading.Thread, object):
         anim.setup(strip)
 
     def run(self):
-        print "Stepper thread started"
+        print 'Stepper thread started'
         while not self.stop_request.isSet():
             done = self.animation.step(self.strip)
             self.strip.show()
@@ -143,7 +155,7 @@ class Stepper(threading.Thread, object):
                         self.queue.put(self.animation, False)
                     self.animation = next_animation
                     self.animation.setup(self.strip)
-                    debugprint('Stepper retreived {0} from queue'.format(self.animation))
+                    debugprint('Stepper retrieved {0} from queue'.format(self.animation))
                     print self.animation
                 except Queue.Empty:
                     pass
@@ -214,25 +226,21 @@ def sendMessage(message):
     finally:
         sock.close()
 
-def debugprint(msg):
-    if DEBUG:
-        print msg
-
 if __name__ == "__main__":
-    noServe = len(sys.argv) > 1 and sys.argv[1] == 'noserve'
 
-    print "Starting server"
+    print "Creating animation server"
     if os.path.exists(SOCKET_NAME):
         os.remove(SOCKET_NAME)
 
-    server = Animator(AnimationRequestHandler, noServe)
+    server = Animator(AnimationRequestHandler, SIMULATE)
 
-    if not noServe:
+    if not SIMULATE:
+        print "Starting animation server..."
         print "Animation server is running on socket {0}".format(SOCKET_NAME)
         print "Quit the server with CONTROL-C."
         server.serve_forever()
     else:
-        print 'noserve specified, debug stuff happening'
+        print "Starting simulation..."
         button_window = Toplevel()
         img = PhotoImage(file="easy_button.gif")
         easy_button = Button(button_window, image=img)
@@ -240,7 +248,5 @@ if __name__ == "__main__":
         easy_button.bind("<Button-1>", lambda e: server.processCommand(ButtonEvent.SINGLEPRESS))
         easy_button.bind("<Double-Button-1>", lambda e: server.processCommand(ButtonEvent.DOUBLEPRESS))        
 
-
     mainloop()
-
        
