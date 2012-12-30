@@ -85,11 +85,11 @@ class Strip(BaseStrip):
 
 # Class for an on-screen testing strip
 class TestingStrip(BaseStrip):
-    def __init__(self, num_pixels, led_size=DEFAULT_LED_SIZE):
+    def __init__(self, num_pixels, tk_root, led_size=DEFAULT_LED_SIZE):
         super(TestingStrip, self).__init__(num_pixels)
         height = led_size + 20
         width = led_size * num_pixels + 20
-        self.canvas = Canvas(Tk(), width=width, height=height)
+        self.canvas = Canvas(tk_root, width=width, height=height)
         self.canvas.pack()
         self.leds = [self.canvas.create_rectangle(10+i*led_size, 10, 10+(i+1)*led_size, led_size+10) for i in xrange(num_pixels)]
         self.canvas.update()

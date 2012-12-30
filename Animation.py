@@ -76,7 +76,7 @@ class RainbowCycle(BaseAnimation):
     def step(self, strip):
         for i in range(strip.num_pixels):
             strip.setPixelColor(i, self.wheel(((i * 384 / strip.num_pixels) + self.counter.i) % 384))
-        self.counter += 5
+        self.counter += 1
         return True
 
 
@@ -129,6 +129,7 @@ class RandomChoice(BaseAnimation):
     def __init__(self, wait=.02):
         super(RandomChoice, self).__init__(wait)
         self.i = 0
+        self.counter = None
         self.returns_control = True
         self.winner = None
         self.color = [0,0,0]

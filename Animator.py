@@ -9,7 +9,7 @@ import re
 import time
 import sys
 from ModCounter import ModCounter
-from Tkinter import mainloop
+from Tkinter import mainloop, Toplevel, PhotoImage, Button
 
 GPIO_AVAILABLE = True
 try:
@@ -23,11 +23,14 @@ INPUT_PIN   = 24
 DEBUG = False
 
 NO_STRIP_ATTACHED = False
+ROOT = None
+
 try:
     StreamServer = SocketServer.UnixStreamServer
 except AttributeError:
     # Probably on a Windows machine, we must be testing with no LED strip attached
     NO_STRIP_ATTACHED = True
+    ROOT = Tk()
     StreamServer = SocketServer.BaseServer
 
 
@@ -47,7 +50,7 @@ class Animator(StreamServer, object):
         super(Animator, self).__init__(SOCKET_NAME, handler)
         self.queue         = Queue.Queue(1)
         if noStrip:
-            strip          = Strip.TestingStrip(32)
+            strip          = Strip.TestingStrip(32, ROOT)
         else: 
             strip          = Strip.Strip(32)
         self.strip         = strip
@@ -68,10 +71,12 @@ class Animator(StreamServer, object):
             self.buttonmonitor = ButtonMonitor()
             self.buttonmonitor.start()
 
-        # self.processCommand(ButtonEvent.SINGLEPRESS)
-        self.processCommand(Animation.MUSIC)
+        #self.processCommand(ButtonEvent.SINGLEPRESS)
+        self.processCommand(Animation.RAINBOWCYCLE)
+        #self.processCommand(Animation.MUSIC)
 
     def processCommand(self, command):
+        debugprint(command)
         animation = None
 
         if re.search(r"^r:\d{1,3},g:\d{1,3},b:\d{1,3}$", command):
@@ -229,5 +234,18 @@ if __name__ == "__main__":
         print "Quit the server with CONTROL-C."
         server.serve_forever()
     else:
+
+        def singleButtonPress():
+            server.processCommand(ButtonEvent.SINGLEPRESS)
+
         print 'noserve specified, debug stuff happening'
-        mainloop()
+        button_window = Toplevel()
+        img = PhotoImage(file="easy_button.gif")
+        easy_button = Button(button_window, image=img)
+        button_window.bind("<Button-1>", lambda e: server.processCommand(ButtonEvent.SINGLEPRESS))
+        button_window.bind("<Double-Button-1>", lambda e: server.processCommand(ButtonEvent.DOUBLEPRESS))        
+        easy_button.pack()
+
+    mainloop()
+
+       
