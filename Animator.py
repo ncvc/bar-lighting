@@ -23,14 +23,12 @@ INPUT_PIN   = 24
 DEBUG = False
 
 NO_STRIP_ATTACHED = False
-ROOT = None
 
 try:
     StreamServer = SocketServer.UnixStreamServer
 except AttributeError:
     # Probably on a Windows machine, we must be testing with no LED strip attached
     NO_STRIP_ATTACHED = True
-    ROOT = Tk()
     StreamServer = SocketServer.BaseServer
 
 
@@ -50,7 +48,7 @@ class Animator(StreamServer, object):
         super(Animator, self).__init__(SOCKET_NAME, handler)
         self.queue         = Queue.Queue(1)
         if noStrip:
-            strip          = Strip.TestingStrip(32, ROOT)
+            strip          = Strip.TestingStrip(32)
         else: 
             strip          = Strip.Strip(32)
         self.strip         = strip
@@ -234,10 +232,6 @@ if __name__ == "__main__":
         print "Quit the server with CONTROL-C."
         server.serve_forever()
     else:
-
-        def singleButtonPress():
-            server.processCommand(ButtonEvent.SINGLEPRESS)
-
         print 'noserve specified, debug stuff happening'
         button_window = Toplevel()
         img = PhotoImage(file="easy_button.gif")

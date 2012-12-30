@@ -129,7 +129,6 @@ class RandomChoice(BaseAnimation):
     def __init__(self, wait=.02):
         super(RandomChoice, self).__init__(wait)
         self.i = 0
-        self.counter = None
         self.returns_control = True
         self.winner = None
         self.color = [0,0,0]
