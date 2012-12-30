@@ -5,14 +5,32 @@ import Queue
 import threading
 import os.path
 import socket
-import datetime
 import re
 import time
-import RPi.GPIO as GPIO
+import Colors
+import sys
+from ModCounter import ModCounter
+from Tkinter import mainloop
+
+GPIO_AVAILABLE = True
+try:
+    import RPi.GPIO as GPIO
+except ImportError:
+    GPIO_AVAILABLE = False
+    print "Failed to import RPi.GPIO, continuing in hopes that we don't need it"
 
 SOCKET_NAME = "/tmp/thechillsocket"
 INPUT_PIN   = 24
 DEBUG = False
+
+NO_STRIP_ATTACHED = False
+try:
+    StreamServer = SocketServer.UnixStreamServer
+except AttributeError:
+    # Probably on a Windows machine, we must be testing with no LED strip attached
+    NO_STRIP_ATTACHED = True
+    StreamServer = SocketServer.BaseServer
+
 
 class States:
     RANDOMSELECTION = 'random selection'
@@ -25,14 +43,16 @@ class ButtonEvent:
 class ControlCommand:
     TOGGLEXMASMODE = 'togglexmasmode'
 
-class Animator(SocketServer.UnixStreamServer, object):
-    def __init__(self, handler):
+class Animator(StreamServer, object):
+    def __init__(self, handler, noStrip=NO_STRIP_ATTACHED):
         super(Animator, self).__init__(SOCKET_NAME, handler)
         self.queue         = Queue.Queue(1)
-        strip              = Strip.Strip(32)
+        if noStrip:
+            strip          = Strip.TestingStrip(32)
+        else: 
+            strip          = Strip.Strip(32)
         self.strip         = strip
         self.stepper       = Stepper(self.queue, Animation.Animation(strip, 0.01))
-        self.buttonmonitor = ButtonMonitor()
         self.xmastoggle    = False
         self.animations    = {Animation.COLORWIPE    : Animation.ColorWipe(strip),
                               Animation.RAINBOW      : Animation.Rainbow(strip),
@@ -48,7 +68,7 @@ class Animator(SocketServer.UnixStreamServer, object):
                               Animation.BLINKONCE    : Animation.Blink(1, strip),
                               Animation.BLINKTWICE   : Animation.Blink(2, strip),
                               Animation.COLOR        : Animation.StaticColor(Colors.CUSTOM, strip)}
-        
+
         self.dynamic_animations = [Animation.COLORWIPE,
                                    Animation.RAINBOW,
                                    Animation.RAINBOWCYCLE,
@@ -69,7 +89,11 @@ class Animator(SocketServer.UnixStreamServer, object):
         self.state       = States.MODESELECTION
 
         self.stepper.start()
-        self.buttonmonitor.start()
+
+        if GPIO_AVAILABLE:
+            self.buttonmonitor = ButtonMonitor()
+            self.buttonmonitor.start()
+
         self.processCommand(ButtonEvent.SINGLEPRESS)
 
     def processCommand(self, command):
@@ -86,7 +110,7 @@ class Animator(SocketServer.UnixStreamServer, object):
             else:
                 animation = self.animations.get(self.dynamic_animations[self.counter.i])
                 self.counter += 1
-  
+
         elif command == ButtonEvent.DOUBLEPRESS:
             state, anim = self.transitions.get(self.state)
             self.state = state
@@ -99,13 +123,13 @@ class Animator(SocketServer.UnixStreamServer, object):
 
         else:
             animation = self.animations.get(command)
-        
+
         if animation:
             try:        
                 self.queue.put(animation, False)
             except Queue.Full:
                 pass
-            
+
     def shutdown(self):
         self.stepper.join()
         self.buttonmonitor.join()
@@ -114,7 +138,7 @@ class Animator(SocketServer.UnixStreamServer, object):
 class AnimationRequestHandler(SocketServer.StreamRequestHandler):
     def handle(self):
         self.data = self.rfile.readline().strip()
-        debugprint "Animator Received:     {}".format(self.data)
+        debugprint("Animator Received:     {}".format(self.data))
         self.server.processCommand(self.data)
 
 class Stepper(threading.Thread, object):
@@ -136,11 +160,11 @@ class Stepper(threading.Thread, object):
                         self.queue.put(self.animation, False)
                     self.animation = next_animation
                     self.animation.setup()
-                    debugprint 'Stepper retreived {0} from queue'.format(self.animation)
+                    debugprint('Stepper retreived {0} from queue'.format(self.animation))
                     print self.animation
                 except Queue.Empty:
                     pass
-            
+
     def join(self, timeout=None):
         print 'Stepper thread exiting'
         self.stop_request.set()
@@ -174,7 +198,7 @@ class ButtonMonitor(threading.Thread, object):
                 num_presses = 0
             else:
                 num_presses = max(num_presses, new_num_presses)
-            
+
             time.sleep(self.wait)
 
     def num_clicks(self, buffer):
@@ -194,7 +218,7 @@ def sendMessage(message):
     try:
         sock.connect(SOCKET_NAME)
         sock.send(message)
-        debugprint "Sent:     {}".format(message)
+        debugprint("Sent:     {}".format(message))
     except IOError as e:
         if e.errno == 13:
             print "{0}\nTry again using sudo".format(e)
@@ -212,14 +236,18 @@ def debugprint(msg):
         print msg
 
 if __name__ == "__main__":
+    noServe = len(sys.argv) > 1 and sys.argv[1] == 'noserve'
+
     print "Starting server"
     if os.path.exists(SOCKET_NAME):
         os.remove(SOCKET_NAME)
-    try:
-        server = Animator(AnimationRequestHandler)
-    except Exception as e:
-        print "{0}\nError starting server:\n".format(e)
 
-    print "Animation server is running on socket {0}".format(SOCKET_NAME)
-    print "Quit the server with CONTROL-C."
-    server.serve_forever()
+    server = Animator(AnimationRequestHandler, noServe)
+
+    if not noServe:
+        print "Animation server is running on socket {0}".format(SOCKET_NAME)
+        print "Quit the server with CONTROL-C."
+        server.serve_forever()
+    else:
+        print 'noserve specified, debug stuff happening'
+        mainloop()

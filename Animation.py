@@ -1,7 +1,7 @@
 import time
 import random
 import Colors
-import ModCounter
+from ModCounter import ModCounter
 
 #string constants
 COLORWIPE      = 'colorwipe'
@@ -70,13 +70,13 @@ class StaticColor(Animation):
 
     def __repr__(self):
         return str(self.color)
-       
+
 class Rainbow(Animation):
     def __init__(self, strip, wait=0.0001):
         super(Rainbow, self).__init__(strip, wait)
         self.counter = ModCounter(384)
         self.name = "Rainbow"
-        
+
     def step(self):
         for i in range(self.strip.num_pixels):
             self.strip.setPixelColor(i, self.wheel((i + self.counter.i) % 384))
@@ -98,7 +98,7 @@ class RainbowCycle(Animation):
         self.counter += 5
         time.sleep(self.wait)
         return True
- 
+
 class ColorWipe(Animation):
     def __init__(self, strip, wait=.01):
         super(ColorWipe, self).__init__(strip, wait)
