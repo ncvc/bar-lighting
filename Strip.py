@@ -1,20 +1,24 @@
-# Class representing the LED Strip
+# Class representing the LED Strip and a test class
 # Python port of arduino c project on adafruit.com
 # Colors are represented as a three element list [R, G, B]
 # where 0 <= R, G, B <= 127
 
 import time
+from Tkinter import Canvas, Tk, mainloop
+
 
 DEV_PATH = '/dev/spidev0.0'
 MAX_BRIGHTNESS = 127
+DEFAULT_LED_SIZE = 40
 
-class Strip:
-    def __init__(self, num_pixels, device_name=DEV_PATH):
+
+# Base strip class that implements nearly all necessary functionality.
+# Implementing classes must override the show() method
+class BaseStrip(object):
+    def __init__(self, num_pixels):
         self.num_pixels = num_pixels
         self.xmasMode   = False
-        self.device     = file(device_name, "wb")
-        self.buffer     = bytearray(num_pixels * 3)
-        self.show()
+        self.buffer     = [[0,0,0] for i in xrange(num_pixels)]
 
     def setPixelColor(self, pixel, color):
         if pixel >= self.num_pixels:
@@ -43,9 +47,7 @@ class Strip:
                     color[0] = color[2] = 0
                 color = [max(minBrightness, min(i, MAX_BRIGHTNESS)) for i in color]
 
-        self.buffer[3 * pixel] = (color[1]) | 0x80  # G, yep they really are in this order!
-        self.buffer[3 * pixel + 1] = (color[0]) | 0x80  # R
-        self.buffer[3 * pixel + 2] = (color[2]) | 0x80  # B
+        self.buffer[pixel] = color
 
     def setColor(self, color):
         for i in range(self.num_pixels):
@@ -56,13 +58,51 @@ class Strip:
         self.show()
 
     def show(self):
+        raise NotImplementedError("Do not use BaseStrip directly - try Strip or TestingStrip")
+
+    def enableXmasMode(self, enable=True):
+        self.xmasMode = enable
+
+
+# Class for a real light strip
+class Strip(BaseStrip):
+    def __init__(self, num_pixels, device_name=DEV_PATH):
+        super(Strip, self).__init__(num_pixels)
+        self.device = file(device_name, "wb")
+        self.show()
+
+    def show(self):
         for x in range(self.num_pixels):
-            self.device.write(self.buffer[x*3:x*3+3])
+            self.device.write(self.buffer[x][1] | 0x80)
+            self.device.write(self.buffer[x][0] | 0x80)
+            self.device.write(self.buffer[x][2] | 0x80)
             self.device.flush()
         self.device.write(bytearray(b'\x00\x00\x00'))  # zero fill the last to prevent stray colors at the end
         self.device.write(bytearray(b'\x00'))
         self.device.flush()
         time.sleep(0.0000000001)
 
-    def enableXmasMode(self, enable=True):
-        self.xmasMode = enable
+
+# Class for an on-screen testing strip
+class TestingStrip(BaseStrip):
+    def __init__(self, num_pixels, led_size=DEFAULT_LED_SIZE):
+        super(TestingStrip, self).__init__(num_pixels)
+        height = led_size + 20
+        width = led_size * num_pixels + 20
+        self.canvas = Canvas(Tk(), width=width, height=height)
+        self.canvas.pack()
+        self.leds = [self.canvas.create_rectangle(10+i*led_size, 10, 10+(i+1)*led_size, led_size+10) for i in xrange(num_pixels)]
+        self.canvas.update()
+
+    def show(self):
+        for i in xrange(self.num_pixels):
+            color = '#%02x%02x%02x' % tuple([(255 * c) / MAX_BRIGHTNESS for c in self.buffer[i]])
+            self.canvas.itemconfigure(self.leds[i], fill=color)
+        self.canvas.update()
+
+
+if __name__ == '__main__':
+    strip = TestingStrip(32)
+    strip.setColor([127,0,0])
+    strip.show()
+    mainloop()
