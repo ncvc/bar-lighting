@@ -129,6 +129,7 @@ class RandomChoice(BaseAnimation):
     def __init__(self, wait=.02):
         super(RandomChoice, self).__init__(wait)
         self.i = 0
+        self.counter = None
         self.returns_control = True
         self.winner = None
         self.color = [0,0,0]
@@ -140,6 +141,7 @@ class RandomChoice(BaseAnimation):
     def setup(self, strip):
         super(RandomChoice, self).setup(strip)
         self.i = 0
+        self.counter = ModCounter(strip.num_pixels)
         self.blink_counter = 0
         self.winner = random.randint(6 * strip.num_pixels, 9 * strip.num_pixels)
         self.wait = .02
@@ -149,18 +151,19 @@ class RandomChoice(BaseAnimation):
         if self.winner - self.i < 20 and self.wait < self.winner:
             self.wait = self.wait * 1.2
         if self.i < self.winner:
-            strip.setPixelColor(self.i - 1, [0,0,0])
-            strip.setPixelColor(self.i, self.color)
+            strip.setPixelColor(self.counter.i - 1, [0,0,0])
+            strip.setPixelColor(self.counter.i, self.color)
             self.i += 1
+            self.counter += 1
         else:
             self.wait = 0.3
-            strip.setPixelColor(self.i - 1, [0,0,0])
+            strip.setPixelColor(self.counter.i - 1, [0,0,0])
             if self.toggle:
                 self.toggle = False
-                strip.setPixelColor(self.i , [0,0,0])
+                strip.setPixelColor(self.counter.i , [0,0,0])
             else:
                 self.toggle = True
-                strip.setPixelColor(self.i, [127, 127, 127])
+                strip.setPixelColor(self.counter.i, [127, 127, 127])
             self.blink_counter += 1
 
         return self.blink_counter > 2 * self.num_blinks
