@@ -243,10 +243,12 @@ if __name__ == "__main__":
         print "Starting simulation..."
         button_window = Toplevel()
         img = PhotoImage(file="easy_button.gif")
-        easy_button = Button(button_window, image=img)
-        easy_button.pack()
-        easy_button.bind("<Button-1>", lambda e: server.processCommand(ButtonEvent.SINGLEPRESS))
-        easy_button.bind("<Double-Button-1>", lambda e: server.processCommand(ButtonEvent.DOUBLEPRESS))        
+        single_easy_button = Button(button_window, image=img)
+        single_easy_button.pack()
+        single_easy_button.bind("<Button-1>", lambda e: server.processCommand(ButtonEvent.SINGLEPRESS))
+        double_easy_button = Button(button_window, text="double tap")
+        double_easy_button.pack()
+        double_easy_button.bind("<Button-1>", lambda e: server.processCommand(ButtonEvent.DOUBLEPRESS))        
 
     mainloop()
        
