@@ -3,9 +3,8 @@
 # Colors are represented as a three element list [R, G, B]
 # where 0 <= R, G, B <= 127
 
-import time
-from Tkinter import Canvas, Tk, mainloop
-
+import time, math
+from Tkinter import Canvas, Tk, mainloop, Toplevel
 
 DEV_PATH = '/dev/spidev0.0'
 MAX_BRIGHTNESS = 127
@@ -15,8 +14,9 @@ SHOW_SLEEP_TIME = 0.0000001
 # Base strip class that implements nearly all necessary functionality.
 # Implementing classes must override the show() method
 class BaseStrip(object):
-    def __init__(self, num_pixels):
+    def __init__(self, num_pixels, row_length):
         self.num_pixels = num_pixels
+        self.row_length = row_length
         self.xmasMode   = False
         self.buffer     = [[0,0,0] for i in xrange(num_pixels)]
 
@@ -63,11 +63,16 @@ class BaseStrip(object):
     def enableXmasMode(self, enable=True):
         self.xmasMode = enable
 
+    def __len__(self):
+        return self.num_pixels
+
+    def __getitem__(self, key):
+        return NotImplementedError
 
 # Class for a real light strip
 class Strip(BaseStrip):
-    def __init__(self, num_pixels, device_name=DEV_PATH):
-        super(Strip, self).__init__(num_pixels)
+    def __init__(self, num_pixels, row_length, device_name=DEV_PATH):
+        super(Strip, self).__init__(num_pixels, row_length)
         self.device = file(device_name, "wb")
         self.show()
 
@@ -85,13 +90,18 @@ class Strip(BaseStrip):
 
 # Class for an on-screen testing strip
 class TestingStrip(BaseStrip):
-    def __init__(self, num_pixels, led_size=DEFAULT_LED_SIZE):
-        super(TestingStrip, self).__init__(num_pixels)
-        height = led_size + 20
-        width = led_size * num_pixels + 20
-        self.canvas = Canvas(None, width=width, height=height)
+    def __init__(self, num_pixels, row_length, led_size=DEFAULT_LED_SIZE):
+        super(TestingStrip, self).__init__(num_pixels, row_length)
+        led_window = Tk()
+        led_window.title('LED Simulator')
+        MARGIN = 5
+        led_size = min((led_window.winfo_screenwidth() - 2 * MARGIN) / row_length, led_size)
+        height = int(math.ceil(num_pixels / row_length))* led_size + 2 * MARGIN
+        width = led_size * row_length + 2 * MARGIN
+        self.canvas = Canvas(led_window, width=width, height=height)
         self.canvas.pack()
-        self.leds = [self.canvas.create_rectangle(10+i*led_size, 10, 10+(i+1)*led_size, led_size+10) for i in xrange(num_pixels)]
+        self.leds = [] * num_pixels
+        self.leds = [self.create_rectangle(i, num_pixels, row_length, led_size, MARGIN) for i in xrange(num_pixels)]
         self.canvas.update()
 
     def show(self):
@@ -100,6 +110,27 @@ class TestingStrip(BaseStrip):
             self.canvas.itemconfigure(self.leds[i], fill=color)
         self.canvas.update()
         time.sleep(SHOW_SLEEP_TIME)
+
+    def create_rectangle(self, index, num_pixels, row_length, led_size, margin):
+        #x0
+        if (index / row_length) % 2 == 0:
+            x0 = margin + (index % row_length) * led_size
+        else:
+            x0 = margin + (row_length - (index % row_length) - 1) * led_size
+
+        #y0
+        y0 = margin + (led_size + margin) * (index / row_length)
+
+        #x1
+        if (index / row_length) % 2 == 0:
+            x1 = margin + ((index % row_length) + 1) * led_size
+        else:
+            x1 = margin + (row_length - (index % row_length)) * led_size
+
+        #y1
+        y1 = margin + (led_size + margin) * (index / row_length) + led_size
+
+        return self.canvas.create_rectangle(x0, y0, x1, y1)
 
 
 if __name__ == '__main__':

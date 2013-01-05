@@ -61,11 +61,31 @@ class Rainbow(BaseAnimation):
         self.name = "Rainbow"
 
     def step(self, strip):
-        for i in range(strip.num_pixels):
+        for i in range(len(strip)):
             strip.setPixelColor(i, self.wheel((i + self.counter.i) % 384))
         self.counter += 5
         return True
 
+class Droplets(BaseAnimation):
+    def __init__(self, wait=0.05):
+        super(Droplets, self).__init__(wait)
+        self.buffer = None
+        self.add_rate = .3
+        self.fade_rate = 5
+        self.name = 'Droplets'
+
+    def step(self, strip):
+        if self.buffer == None:
+            self.buffer = [[0,0,0]] * len(strip)
+
+        self.buffer = [[max(0, r - self.fade_rate), max(0, g - self.fade_rate), max(0, b - self.fade_rate)] for r, g, b in self.buffer]
+
+        if random.random() < self.add_rate:
+            self.buffer[random.randint(0, len(strip) - 1)] = random.choice(Colors.COLORS).rgb()
+
+        for i in range(len(strip)):
+            strip.setPixelColor(i, self.buffer[i])
+        return True
 
 class RainbowCycle(BaseAnimation):
     def __init__(self, wait=0.01):
@@ -74,8 +94,8 @@ class RainbowCycle(BaseAnimation):
         self.name = "Rainbow Cycle"
 
     def step(self, strip):
-        for i in range(strip.num_pixels):
-            strip.setPixelColor(i, self.wheel(((i * 384 / strip.num_pixels) + self.counter.i) % 384))
+        for i in range(len(strip)):
+            strip.setPixelColor(i, self.wheel(((i * 384 / len(strip)) + self.counter.i) % 384))
         self.counter += 1
         return True
 
@@ -88,7 +108,7 @@ class ColorWipe(BaseAnimation):
 
     def setup(self, strip):
         super(ColorWipe, self).setup(strip)
-        self.counter = ModCounter(strip.num_pixels)
+        self.counter = ModCounter(len(strip))
         self.counter.reset()
 
     def step(self, strip):
@@ -99,7 +119,7 @@ class ColorWipe(BaseAnimation):
             self.color = rand
         strip.setPixelColor(self.counter.i, self.color.rgb())
         self.counter += 1
-        return self.counter == 0
+        return True
 
 
 class Blink(BaseAnimation):
@@ -124,6 +144,68 @@ class Blink(BaseAnimation):
         self.i += 1
         return self.i > self.num_blinks * 2
 
+class Additive(BaseAnimation):
+    def __init__(self, fade=True, wait=0.01):
+        super(Additive, self).__init__(wait)
+        self.color = None
+        self.buffer = None
+        self.step_size = .1
+        self.fade = fade
+        self.name = 'Additive Fade' if fade else 'Additive Cycle'
+        self.tolerance = .85
+
+    def setup(self, strip):
+        super(Additive, self).setup(strip)
+        temp = self.color
+        while temp == self.color:
+            temp = random.choice(Colors.COLORS)
+        self.color = temp
+        self.buffer = [[0,0,0]] * len(strip)
+        self.color_changed_flag_buffer = [False] * len(strip)
+
+    def step(self, strip):
+        i = random.randint(0, len(strip) - 1)
+        r, g, b = self.buffer[i]
+        cr, cg, cb = self.color.rgb()
+
+        if not self.fade and self.color_changed_flag_buffer[i]:
+            self.color_changed_flag_buffer[i] = False
+            r = 0
+            g = 0
+            b = 0
+
+        if cr != 0:
+            r = min(127, r + self.step_size * cr)
+        else:
+            r = max(0, r - self.step_size * 127)
+
+        if cg != 0:
+            g = min(127, g + self.step_size * cg)
+        else:
+            g = max(0, g - self.step_size * 127)
+
+        if cb != 0:
+            b = min(127, b + self.step_size * cb)
+        else:
+            b = max(0, b - self.step_size * 127)
+
+        self.buffer[i] = [r, g, b]
+
+        count = 0
+        
+        for i in range(len(strip)):
+            strip.setPixelColor(i, self.buffer[i])
+            if self.buffer[i] == self.color.rgb():
+                count += 1
+
+        if float(count) / len(strip) > self.tolerance:
+            temp = self.color
+            while temp == self.color:
+                temp = random.choice(Colors.COLORS)
+            self.color = temp
+            self.color_changed_flag_buffer = [True for i in range(len(self.color_changed_flag_buffer))]
+
+        return True
 
 class RandomChoice(BaseAnimation):
     def __init__(self, wait=.02):
@@ -141,9 +223,9 @@ class RandomChoice(BaseAnimation):
     def setup(self, strip):
         super(RandomChoice, self).setup(strip)
         self.i = 0
-        self.counter = ModCounter(strip.num_pixels)
+        self.counter = ModCounter(len(strip))
         self.blink_counter = 0
-        self.winner = random.randint(6 * strip.num_pixels, 9 * strip.num_pixels)
+        self.winner = random.randint(1 * len(strip), 2 * len(strip))
         self.wait = .02
         self.color = random.choice(Colors.COLORS).rgb()
 
@@ -204,8 +286,14 @@ RAINBOWCYCLE   = 'rainbowcycle'
 BLINKONCE      = 'blinkonce'
 BLINKTWICE     = 'blinktwice'
 MUSIC          = 'music'
+DROPLETS       = 'droplets'
+ADDITIVEFADE   = 'additivefade'
+ADDITIVECYCLE  = 'additivecycle'
 
-DYNAMIC_ANIMATIONS = [COLORWIPE,
+DYNAMIC_ANIMATIONS = [ADDITIVEFADE,
+                      ADDITIVECYCLE,
+                      DROPLETS,
+                      COLORWIPE,
                       RAINBOW,
                       RAINBOWCYCLE,
                       STATICRED,
@@ -215,7 +303,9 @@ DYNAMIC_ANIMATIONS = [COLORWIPE,
                       STATICCYAN,
                       STATICWHITE,
                       BLACKOUT,
-                      MUSIC]
+                      DROPLETS,
+                      ADDITIVEFADE,
+                      ADDITIVECYCLE]
 
 ANIMATIONS    = {COLORWIPE    : ColorWipe(),
                  RAINBOW      : Rainbow(),
@@ -231,4 +321,7 @@ ANIMATIONS    = {COLORWIPE    : ColorWipe(),
                  BLINKONCE    : Blink(1),
                  BLINKTWICE   : Blink(2),
                  COLOR        : StaticColor(Colors.CUSTOM),
-                 MUSIC        : MusicReactive()}
+                 MUSIC        : MusicReactive(),
+                 DROPLETS     : Droplets(),
+                 ADDITIVEFADE : Additive(True),
+                 ADDITIVECYCLE: Additive(False)}

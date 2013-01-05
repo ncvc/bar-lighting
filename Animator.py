@@ -12,13 +12,21 @@ import argparse
 from ModCounter import ModCounter
 from Tkinter import mainloop, Toplevel, PhotoImage, Button
 
+DEFAULT_STRIP_LENGTH = 32
+DEFAULT_ROW_LENGTH = 32
+
 parser = argparse.ArgumentParser()
 parser.add_argument("-v", "--verbose", help="show the debug statements", action="store_true")
 parser.add_argument("-s", "--simulate", help="run in simulation", action="store_true")
+parser.add_argument("-l", "--length", help="set the strip length", default=DEFAULT_STRIP_LENGTH, type=int)
+parser.add_argument("-r", "--rowlength", help="set the row length", default=DEFAULT_ROW_LENGTH, type=int)
 args = parser.parse_args()
+print args
 
 DEBUG = args.verbose
 SIMULATE = args.simulate
+STRIP_LENGTH = args.length
+ROW_LENGTH = min(args.rowlength, STRIP_LENGTH)
 
 def debugprint(msg):
     if DEBUG:
@@ -43,11 +51,6 @@ except AttributeError:
     NO_STRIP_ATTACHED = True
     StreamServer = SocketServer.BaseServer
 
-
-class States:
-    RANDOMSELECTION = 'random selection'
-    MODESELECTION   = 'mode selection'
-
 class ButtonEvent:
     SINGLEPRESS = 'singlepress'
     DOUBLEPRESS = 'doublepress'
@@ -60,19 +63,13 @@ class Animator(StreamServer, object):
         super(Animator, self).__init__(SOCKET_NAME, handler)
         self.queue         = Queue.Queue(1)
         if noStrip:
-            strip          = Strip.TestingStrip(32)
+            strip          = Strip.TestingStrip(STRIP_LENGTH, ROW_LENGTH)
         else: 
-            strip          = Strip.Strip(32)
+            strip          = Strip.Strip(STRIP_LENGTH, ROW_LENGTH)
         self.strip         = strip
         self.xmastoggle    = False
 
-        #transitions keys are for current state
-        #transitions values are a tuple of the next state and Animation to be played, or None
-        self.transitions = {States.RANDOMSELECTION : (States.MODESELECTION, Animation.BLINKTWICE),
-                            States.MODESELECTION   : (States.RANDOMSELECTION, Animation.BLINKONCE)}
-
         self.counter     = ModCounter(len(Animation.DYNAMIC_ANIMATIONS))
-        self.state       = States.MODESELECTION
 
         self.stepper = Stepper(self.queue, Animation.ANIMATIONS[Animation.BLACKOUT], strip)
         self.stepper.start()
@@ -81,8 +78,7 @@ class Animator(StreamServer, object):
             self.buttonmonitor = ButtonMonitor()
             self.buttonmonitor.start()
 
-        #self.processCommand(ButtonEvent.SINGLEPRESS)
-        self.processCommand(Animation.RAINBOWCYCLE)
+        self.processCommand(ButtonEvent.SINGLEPRESS)
         #self.processCommand(Animation.MUSIC)
 
     def processCommand(self, command):
@@ -95,17 +91,11 @@ class Animator(StreamServer, object):
             animation.color.setrgb(r, g, b)
 
         elif command == ButtonEvent.SINGLEPRESS:
-            if self.state == States.RANDOMSELECTION:
-                animation = Animation.ANIMATIONS[Animation.RANDOM]
-            else:
-                animation = Animation.ANIMATIONS.get(Animation.DYNAMIC_ANIMATIONS[self.counter.i])
-                self.counter += 1
+            animation = Animation.ANIMATIONS.get(Animation.DYNAMIC_ANIMATIONS[self.counter.i])
+            self.counter += 1
 
         elif command == ButtonEvent.DOUBLEPRESS:
-            state, anim = self.transitions.get(self.state)
-            self.state = state
-            print "Changed to {0}".format(self.state)
-            animation = Animation.ANIMATIONS.get(anim)
+            animation = Animation.ANIMATIONS[Animation.RANDOM]
 
         elif command == ControlCommand.TOGGLEXMASMODE:
             self.xmastoggle = not self.xmastoggle
@@ -242,6 +232,7 @@ if __name__ == "__main__":
     else:
         print "Starting simulation..."
         button_window = Toplevel()
+        button_window.title('Button Input')
         img = PhotoImage(file="easy_button.gif")
         single_easy_button = Button(button_window, image=img)
         single_easy_button.pack()
