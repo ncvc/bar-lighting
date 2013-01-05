@@ -18,10 +18,9 @@ class BaseStrip(object):
         self.num_pixels = num_pixels
         self.row_length = row_length
         self.xmasMode   = False
-        self.buffer     = bytearray(num_pixels * 3 + 1)
+        self.buffer     = [[0,0,0]] * num_pixels
 
     def setPixelColor(self, pixel, color):
-        print pixel, color
         if pixel >= self.num_pixels:
             raise Exception("Invalid pixel index {0}".format(pixel))
 
@@ -48,13 +47,8 @@ class BaseStrip(object):
                     color[0] = color[2] = 0
                 color = [max(minBrightness, min(i, MAX_BRIGHTNESS)) for i in color]
 
-        self.buffer[3 * pixel]     = int(color[0])
-        self.buffer[3 * pixel + 1] = int(color[1])
-        self.buffer[3 * pixel + 1] = int(color[2])
-
-    def getPixelColor(self, pixel):
-        return [self.buffer[3 * pixel], self.buffer[3 * pixel + 1], self.buffer[3 * pixel + 2]]
-
+        self.buffer[pixel] = [int(i) for i in color]
+ 
     def setColor(self, color):
         for i in range(self.num_pixels):
             self.setPixelColor(i, color)
@@ -72,22 +66,22 @@ class BaseStrip(object):
     def __len__(self):
         return self.num_pixels
 
-    def __getitem__(self, key):
-        return NotImplementedError
+    def __getitem__(self, i):
+        return self.buffer[i]
 
 # Class for a real light strip
 class Strip(BaseStrip):
     def __init__(self, num_pixels, row_length, device_name=DEV_PATH):
         super(Strip, self).__init__(num_pixels, row_length)
         self.device = file(device_name, "wb")
-        self.buffer = bytearray(num_pixels * 3)
         self.show()
 
     def show(self):
-        for x in range(self.num_pixels):
-            self.device.write(self.buffer[x][1] | 0x80)
-            self.device.write(self.buffer[x][0] | 0x80)
-            self.device.write(self.buffer[x][2] | 0x80)
+        for i in range(self.num_pixels):
+            r, g, b = self[i]
+            self.device.write(chr(r | 0x80))
+            self.device.write(chr(g | 0x80))
+            self.device.write(chr(b | 0x80))
             self.device.flush()
         self.device.write(bytearray(b'\x00\x00\x00'))  # zero fill the last to prevent stray colors at the end
         self.device.write(bytearray(b'\x00'))
