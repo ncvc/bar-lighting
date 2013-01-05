@@ -18,9 +18,10 @@ class BaseStrip(object):
         self.num_pixels = num_pixels
         self.row_length = row_length
         self.xmasMode   = False
-        self.buffer     = [[0,0,0] for i in xrange(num_pixels)]
+        self.buffer     = bytearray(num_pixels * 3 + 1)
 
     def setPixelColor(self, pixel, color):
+        print pixel, color
         if pixel >= self.num_pixels:
             raise Exception("Invalid pixel index {0}".format(pixel))
 
@@ -47,7 +48,12 @@ class BaseStrip(object):
                     color[0] = color[2] = 0
                 color = [max(minBrightness, min(i, MAX_BRIGHTNESS)) for i in color]
 
-        self.buffer[pixel] = color
+        self.buffer[3 * pixel]     = int(color[0])
+        self.buffer[3 * pixel + 1] = int(color[1])
+        self.buffer[3 * pixel + 1] = int(color[2])
+
+    def getPixelColor(self, pixel):
+        return [self.buffer[3 * pixel], self.buffer[3 * pixel + 1], self.buffer[3 * pixel + 2]]
 
     def setColor(self, color):
         for i in range(self.num_pixels):
@@ -74,6 +80,7 @@ class Strip(BaseStrip):
     def __init__(self, num_pixels, row_length, device_name=DEV_PATH):
         super(Strip, self).__init__(num_pixels, row_length)
         self.device = file(device_name, "wb")
+        self.buffer = bytearray(num_pixels * 3)
         self.show()
 
     def show(self):
@@ -106,7 +113,7 @@ class TestingStrip(BaseStrip):
 
     def show(self):
         for i in xrange(self.num_pixels):
-            color = '#%02x%02x%02x' % tuple([(255 * c) / MAX_BRIGHTNESS for c in self.buffer[i]])
+            color = '#%02x%02x%02x' % tuple([(255 * c) / MAX_BRIGHTNESS for c in self.getPixelColor(i)])
             self.canvas.itemconfigure(self.leds[i], fill=color)
         self.canvas.update()
         time.sleep(SHOW_SLEEP_TIME)
