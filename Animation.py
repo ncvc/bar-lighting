@@ -290,22 +290,19 @@ DROPLETS       = 'droplets'
 ADDITIVEFADE   = 'additivefade'
 ADDITIVECYCLE  = 'additivecycle'
 
-DYNAMIC_ANIMATIONS = [ADDITIVEFADE,
-                      ADDITIVECYCLE,
-                      DROPLETS,
-                      COLORWIPE,
+DYNAMIC_ANIMATIONS = [COLORWIPE,
                       RAINBOW,
                       RAINBOWCYCLE,
+                      ADDITIVEFADE,
+                      ADDITIVECYCLE,
+                      DROPLETS,
                       STATICRED,
                       STATICGREEN,
                       STATICBLUE,
                       STATICMAGENTA,
                       STATICCYAN,
                       STATICWHITE,
-                      BLACKOUT,
-                      DROPLETS,
-                      ADDITIVEFADE,
-                      ADDITIVECYCLE]
+                      BLACKOUT]
 
 ANIMATIONS    = {COLORWIPE    : ColorWipe(),
                  RAINBOW      : Rainbow(),

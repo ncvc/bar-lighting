@@ -12,7 +12,7 @@ import argparse
 from ModCounter import ModCounter
 from Tkinter import mainloop, Toplevel, PhotoImage, Button
 
-DEFAULT_STRIP_LENGTH = 32
+DEFAULT_STRIP_LENGTH = 64
 DEFAULT_ROW_LENGTH = 32
 
 parser = argparse.ArgumentParser()
@@ -20,8 +20,10 @@ parser.add_argument("-v", "--verbose", help="show the debug statements", action=
 parser.add_argument("-s", "--simulate", help="run in simulation", action="store_true")
 parser.add_argument("-l", "--length", help="set the strip length", default=DEFAULT_STRIP_LENGTH, type=int)
 parser.add_argument("-r", "--rowlength", help="set the row length", default=DEFAULT_ROW_LENGTH, type=int)
-args = parser.parse_args()
-print args
+if __name__ == "__main__":
+    args = parser.parse_args()
+else:
+    args = parser.parse_args([])
 
 DEBUG = args.verbose
 SIMULATE = args.simulate
