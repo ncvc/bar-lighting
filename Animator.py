@@ -69,7 +69,7 @@ class Animator(StreamServer, object):
             self.buttonmonitor.start()
 
         # self.processCommand(ButtonEvent.SINGLEPRESS)
-        self.processCommand(Animation.MUSIC)
+        self.processCommand(Animation.COLORWIPE)
 
     def processCommand(self, command):
         animation = None

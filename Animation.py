@@ -1,6 +1,9 @@
 import random
 import Colors
 from ModCounter import ModCounter
+import Queue
+import numpy as np
+import pyaudio
 
 
 # Base Animation class that implements nearly all necessary functionality.
@@ -166,22 +169,118 @@ class RandomChoice(BaseAnimation):
         return self.blink_counter > 2 * self.num_blinks
 
 
+# Abstract class to react to mic input
 class MusicReactive(BaseAnimation):
     def __init__(self):
-        super(MusicReactive, self).__init__(0)
-        self.i = 0
+        super(MusicReactive, self).__init__(0.1)
+        self.CHUNK = 1024
+        FORMAT = pyaudio.paInt16
+        CHANNELS = 1
+        self.RATE = 44100
+        QUEUE_SECONDS = 1
+
         self.returns_control = True
         self.name = "MusicReactive"
+        self.queue = [0] * self.RATE * QUEUE_SECONDS
+
+        self.p = pyaudio.PyAudio()
+
+        self.stream = self.p.open(format=FORMAT,
+                             channels=CHANNELS,
+                             rate=self.RATE,
+                             input=True,
+                             frames_per_buffer=self.CHUNK)
+
+    def getFreqs(self):
+        while self.stream.get_read_available() >= self.CHUNK:
+            for frame in self.stream.read(self.CHUNK):
+                self.queue.pop()
+                self.queue.append(frame)
+
+        w = np.fft.fft(self.queue)
+        freqs = np.fft.fftfreq(len(w))
+        # print freqs
+        print(freqs.min(),freqs.max())
+        # (-0.5, 0.499975)
+
+        # Find the peak in the coefficients
+        idx=np.argmax(np.abs(w)**2)
+        freq=freqs[idx] 
+        freq_in_hertz=abs(freq * self.RATE)
+        print(freq_in_hertz)
+        for e in xrange(len(w)):
+            freq=freqs[e]
+            freq_in_hertz=abs(freq * self.RATE)
+            print e, np.abs(w[e])**2, freq_in_hertz
+
+        return False
+
+    # Returns the level of wub, normalized to the range [0,1]
+    def getWubLevel(self):
+        self.getFreqs()
+
+    # Not sure if necessary
+    def end(self):
+        self.stream.stop_stream()
+        self.stream.close()
+
+        self.p.terminate()
+
+
+class MusicSlider(MusicReactive):
+    def __init__(self):
+        super(MusicSlider, self).__init__()
+        self.name = 'MusicSlider'
+        self.color = Colors.RED
 
     def setup(self, strip):
-        super(MusicReactive, self).setup(strip)
-        self.i = 0
+        super(MusicSlider, self).setup(strip)
+        strip.blackout()
+        self.slider = 0.0
 
     def step(self, strip):
-        strip.setColor([self.i] * 3)
+        scaledWubLevel = self.getWubLevel() * strip.num_pixels
+        if self.slider >= scaledWubLevel:
+            self.slider = scaledWubLevel
+        else:
+            self.slider -= 0.1
 
-        self.i += 1
-        return False
+        self.setColor([0,0,0])
+        for i in xrange(self.slider):
+            self.strip.setPixelColor(int(i), self.color)
+
+        self.strip.setPixelColor(int(self.slider), self.color * (self.slider - int(self.slider)))
+
+        return True
+
+
+class MusicCenterSlider(MusicReactive):
+    def __init__(self):
+        super(MusicCenterSlider, self).__init__()
+        self.name = 'MusicCenterSlider'
+        self.color = Colors.RED
+
+
+    def setup(self, strip):
+        super(MusicCenterSlider, self).setup(strip)
+        strip.blackout()
+        self.slider = 0.0
+
+    def step(self, strip):
+        scaledWubLevel = self.getWubLevel() * strip.num_pixels
+        if self.slider >= scaledWubLevel:
+            self.slider = scaledWubLevel
+        else:
+            self.slider -= 0.1
+
+        self.setColor([0,0,0])
+        brightness = self.slider - int(self.slider)
+        for i in xrange(self.slider):
+            self.strip.setPixelColor(int(i), self.color * brightness)
+
+        self.strip.setPixelColor(int(self.slider), self.color * (self.slider - int(self.slider)))
+
+        return True
 
 
 # String constants
@@ -211,8 +310,8 @@ DYNAMIC_ANIMATIONS = [COLORWIPE,
                       STATICMAGENTA,
                       STATICCYAN,
                       STATICWHITE,
-                      BLACKOUT,
-                      MUSIC]
+                      BLACKOUT]
+                      #MUSIC]
 
 ANIMATIONS    = {COLORWIPE    : ColorWipe(),
                  RAINBOW      : Rainbow(),
@@ -227,5 +326,5 @@ ANIMATIONS    = {COLORWIPE    : ColorWipe(),
                  RANDOM       : RandomChoice(),
                  BLINKONCE    : Blink(1),
                  BLINKTWICE   : Blink(2),
-                 COLOR        : StaticColor(Colors.CUSTOM),
-                 MUSIC        : MusicReactive()}
+                 COLOR        : StaticColor(Colors.CUSTOM)}
+                 #MUSIC        : MusicCenterSlider()}
