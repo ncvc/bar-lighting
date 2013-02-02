@@ -1,9 +1,9 @@
 class Color(object):
     def __init__(self, name, r, g, b):
-         self.r = r
-         self.g = g
-         self.b = b
-         self.name = name
+        self.r = r
+        self.g = g
+        self.b = b
+        self.name = name
 
     def rgb(self):
         return [self.r, self.g, self.b]
@@ -12,7 +12,15 @@ class Color(object):
         self.r = r
         self.g = g
         self.b = b
-            
+
+    # Scales the current color
+    def __mul__(self, other):
+        return Color('Custom', self.r * other, self.g * other, self.b * other)
+
+    # Scales the current color
+    def __div__(self, other):
+        return Color('Custom', self.r / other, self.g / other, self.b / other)
+
     def __repr__(self):
         return "{0}, R: {1} G: {2} B: {3}".format(self.name, self.r, self.g, self.b)
 

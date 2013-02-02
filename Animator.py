@@ -276,4 +276,3 @@ if __name__ == "__main__":
         double_easy_button.bind("<Button-1>", lambda e: server.processCommand(ButtonEvent.DOUBLEPRESS))        
 
     mainloop()
-       

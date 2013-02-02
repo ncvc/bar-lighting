@@ -124,7 +124,8 @@ class TestingStrip(BaseStrip):
         led_window.title('LED Simulator')
         MARGIN = 5
         led_size = min((led_window.winfo_screenwidth() - 2 * MARGIN) / row_length, led_size)
-        height = int(math.ceil(num_pixels / row_length))* led_size + 2 * MARGIN
+        num_rows = math.ceil(num_pixels / row_length)
+        height = num_rows * led_size + (1 + num_rows) * MARGIN
         width = led_size * row_length + 2 * MARGIN
         self.canvas = Canvas(led_window, width=width, height=height)
         self.canvas.pack()
