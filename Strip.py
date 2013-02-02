@@ -87,6 +87,9 @@ class BaseStrip(object):
     def enableXmasMode(self, enable=True):
         self.xmasMode = enable
 
+    def getPixelColor(self, i):
+        return self.buffer[i]
+
     def __len__(self):
         return self.num_pixels
 
