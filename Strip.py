@@ -17,6 +17,8 @@ class BaseStrip(object):
     def __init__(self, num_pixels, row_length):
         self.num_pixels = num_pixels
         self.row_length = row_length
+        self.rows = num_pixels / row_length
+        self.columns = row_length
         self.xmasMode   = False
         self.buffer     = [[0,0,0]] * num_pixels
 
@@ -48,10 +50,32 @@ class BaseStrip(object):
                 color = [max(minBrightness, min(i, MAX_BRIGHTNESS)) for i in color]
 
         self.buffer[pixel] = [int(i) for i in color]
- 
+
+    def setGridPixelColor(self, x, y, color):
+        if y % 2 == 0 :
+            x_offset = x
+        else:
+            x_offset = self.columns - x - 1
+        self.setPixelColor(x_offset + y * self.row_length, color)
+
+    def getGridPixelColor(self, x, y):
+        if y % 2 == 0 :
+            x_offset = x
+        else:
+            x_offset = self.columns - x - 1
+        return self.buffer[x_offset + y * self.row_length]
+
     def setColor(self, color):
         for i in range(self.num_pixels):
             self.setPixelColor(i, color)
+
+    def setColumnColor(self, column, color):
+        for row in range(self.rows):
+            self.setPixelColor(column, row, color)
+
+    def setRowColor(self, row, color):
+        for column in range(self.columns):
+            self.setPixelColor(column, row, color)
 
     def blackout(self):
         self.setColor([0,0,0])
@@ -107,7 +131,7 @@ class TestingStrip(BaseStrip):
 
     def show(self):
         for i in xrange(self.num_pixels):
-            color = '#%02x%02x%02x' % tuple([(255 * c) / MAX_BRIGHTNESS for c in self.getPixelColor(i)])
+            color = '#%02x%02x%02x' % tuple([(255 * c) / MAX_BRIGHTNESS for c in self[i]])
             self.canvas.itemconfigure(self.leds[i], fill=color)
         self.canvas.update()
         time.sleep(SHOW_SLEEP_TIME)
