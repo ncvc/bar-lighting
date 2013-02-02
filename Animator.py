@@ -101,6 +101,9 @@ class Animator(StreamServer, object):
         elif command == ButtonEvent.DOUBLEPRESS:
             animation = Animation.ANIMATIONS[Animation.RANDOM]
 
+        elif command == ButtonEvent.LONGPRESS:
+            animation = Animation.ANIMATIONS[Animation.BLACKOUT]
+
         elif command == ControlCommand.TOGGLEXMASMODE:
             self.xmastoggle = not self.xmastoggle
             self.strip.enableXmasMode(self.xmastoggle)
@@ -159,12 +162,10 @@ class Stepper(threading.Thread, object):
         self.stop_request.set()
         super(Stepper, self).join(timeout)
 
-
-
 class States:
 	WAITING             = 0
 	LONGPRESSVALIDATE   = 1
-	LONGPRESS           = 2
+        LONGPRESS           = 2
 	SINGLEPRESSVALIDATE = 3
 	DOUBLEPRESS         = 4
 
@@ -182,46 +183,49 @@ class ButtonMonitor(threading.Thread, object):
         long_press_validate_count   = 0
         single_press_validate_count = 0
         
-        long_press_validate_threshold   = 15
-        single_press_validate_threshold = 15
+        long_press_validate_threshold   = 150
+        single_press_validate_threshold = 25
         
-        input_value = input = not GPIO.input(INPUT_PIN)
-        if self.state == States.WAITING:
-            if input_value:
-                self.state = States.LONGPRESSVALIDATE
+        while not self.stop_request.isSet():
+            input_value  = not GPIO.input(INPUT_PIN)
+            if self.state == States.WAITING:
+                if input_value:
+                    self.state = States.LONGPRESSVALIDATE
                     
-        elif self.state == States.LONGPRESSVALIDATE:
-            if input_value:
-                if long_press_validate_count > long_press_validate_threshold:
-                    self.state = States.LONGPRESS
+            elif self.state == States.LONGPRESSVALIDATE:
+                if input_value:
+                    if long_press_validate_count > long_press_validate_threshold:
+                        self.state = States.LONGPRESS
+                        long_press_validate_count = 0
+                        sendMessage(ButtonEvent.LONGPRESS)
+                    else:
+                        long_press_validate_count += 1
+                else:
+                    self.state = States.SINGLEPRESSVALIDATE
                     long_press_validate_count = 0
-                else:
-                    long_press_validate_count += 1
-            else:
-                self.state = States.SINGLEPRESSVALIDATE
-                long_press_validate_threshold = 0
-                        
-        elif self.state == States.LONGPRESS:
-            if not input_value:
-                self.state = States.WAITING
-                sendMessage(ButtonEvent.LONGPRESS)
 
-	elif self.state == States.SINGLEPRESSVALIDATE:
-            if input_value:
-                self.state = States.DOUBLEPRESS
-            else:
-                if single_press_validate_count > single_press_validate_threshold:
+            elif self.state == States.LONGPRESS:
+                if not input_value:
                     self.state = States.WAITING
-                    single_press_validate_count = 0
-                    sendMessage(ButtonEvent.SINGLEPRESS)
-                else:
-                    single_press_validate_count += 1
-	elif self.state == States.DOUBLEPRESS:
-            if not input_value:
-                sendMessage(ButtonEvent.DOUBLEPRESS)
-                self.state = States.WAITING
 
-        time.sleep(self.wait)
+            elif self.state == States.SINGLEPRESSVALIDATE:
+                if input_value:
+                    self.state = States.DOUBLEPRESS
+                    single_press_validate_count = 0
+                else:
+                    if single_press_validate_count > single_press_validate_threshold:
+                        self.state = States.WAITING
+                        single_press_validate_count = 0
+                        sendMessage(ButtonEvent.SINGLEPRESS)
+                    else:
+                        single_press_validate_count += 1
+     
+            elif self.state == States.DOUBLEPRESS:
+                if not input_value:
+                    sendMessage(ButtonEvent.DOUBLEPRESS)
+                    self.state = States.WAITING
+            
+            time.sleep(self.wait)
 
     def join(self, timeout=None):
         print "Button Monitor thread exiting"
