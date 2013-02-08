@@ -57,6 +57,17 @@ class StaticColor(BaseAnimation):
         return str(self.color)
 
 
+class ColorRotate(BaseAnimation):
+    def __init__(self, wait=1):
+        super(ColorRotate, self).__init__(wait=wait)
+        self.name = "Color Rotate"
+        self.counter = ModCounter(len(Colors.COLORS))
+
+    def step(self, strip):
+        strip.setColor(Colors.COLORS[self.counter.i].rgb())
+        self.counter += 1
+        return True
+
 class Rainbow(BaseAnimation):
     def __init__(self, wait=0.01):
         super(Rainbow, self).__init__(wait)
@@ -372,12 +383,6 @@ class MusicCenterSlider(MusicReactive):
 COLORWIPE      = 'colorwipe'
 BLACKOUT       = 'blackout'
 COLOR          = 'color'
-STATICRED      = 'staticred'
-STATICBLUE     = 'staticblue'
-STATICGREEN    = 'staticgreen'
-STATICMAGENTA  = 'staticmagenta'
-STATICCYAN     = 'staticcyan'
-STATICWHITE    = 'staticwhite'
 BLACKOUT       = 'blackout'
 RANDOM         = 'randomchoice'
 RAINBOW        = 'rainbow'
@@ -388,6 +393,7 @@ MUSIC          = 'music'
 DROPLETS       = 'droplets'
 ADDITIVEFADE   = 'additivefade'
 ADDITIVECYCLE  = 'additivecycle'
+COLORROTATE    = 'colorrotate'
 
 DYNAMIC_ANIMATIONS = [COLORWIPE,
                       RAINBOW,
@@ -395,22 +401,11 @@ DYNAMIC_ANIMATIONS = [COLORWIPE,
                       ADDITIVEFADE,
                       ADDITIVECYCLE,
                       DROPLETS,
-                      STATICRED,
-                      STATICGREEN,
-                      STATICBLUE,
-                      STATICMAGENTA,
-                      STATICCYAN,
-                      STATICWHITE]
+                      COLORROTATE]
 
 ANIMATIONS    = {COLORWIPE    : ColorWipe(),
                  RAINBOW      : Rainbow(),
                  RAINBOWCYCLE : RainbowCycle(),
-                 STATICRED    : StaticColor(Colors.RED),
-                 STATICGREEN  : StaticColor(Colors.GREEN),
-                 STATICBLUE   : StaticColor(Colors.BLUE),
-                 STATICMAGENTA: StaticColor(Colors.MAGENTA),
-                 STATICCYAN   : StaticColor(Colors.CYAN),
-                 STATICWHITE  : StaticColor(Colors.WHITE),
                  BLACKOUT     : StaticColor(Colors.BLACKOUT),
                  RANDOM       : RandomChoice(),
                  BLINKONCE    : Blink(1),
@@ -419,4 +414,5 @@ ANIMATIONS    = {COLORWIPE    : ColorWipe(),
                  MUSIC        : MusicReactive(),
                  DROPLETS     : Droplets(),
                  ADDITIVEFADE : Additive(True),
-                 ADDITIVECYCLE: Additive(False)}
+                 ADDITIVECYCLE: Additive(False),
+                 COLORROTATE  : ColorRotate()}
