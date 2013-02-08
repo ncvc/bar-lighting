@@ -76,24 +76,29 @@ class ColorChase(BaseAnimation):
         self.spacing_counter = ModCounter(spacing);
         self.color_change_counter = ModCounter(color_change_length)
         self.name = "Color Chase"
+        self.color1 = None
+        self.color2 = None
 
     def step(self, strip):
-        self.color_change_counter += 1
-        self.spacing_counter += 1
-        
         if self.color_change_counter == 0:
-            self.color_counter += 1
+            self.color1 = random.choice(Colors.COLORS)
+            self.color2 = random.choice(Colors.COLORS)
+            while self.color1 == self.color2:
+                self.color2 = random.choice(Colors.COLORS)
+    
+        self.color_change_counter += 1
+        self.spacing_counter += 1         
 
         for i in range(len(strip)):
             if i % self.spacing  == self.spacing_counter.i:
-                strip.setPixelColor(i, Colors.COLORS[self.color_counter.i].rgb())
+                strip.setPixelColor(i, self.color1.rgb())
 
             if ((i + 1) % self.spacing) == self.spacing_counter.i:
                 strip.setPixelColor(i, [0, 0, 0])
 
         for i in range(len(strip)):
             if i % self.spacing  == 5 - self.spacing_counter.i:
-                strip.setPixelColor(i, Colors.COLORS[self.color_counter.i + 1].rgb())
+                strip.setPixelColor(i, self.color2.rgb())
 
             if ((i - 1) % self.spacing) == 5 - self.spacing_counter.i:
                 strip.setPixelColor(i, [0, 0, 0])
@@ -450,4 +455,4 @@ ANIMATIONS    = {COLORWIPE    : ColorWipe(),
                  ADDITIVEFADE : Additive(True),
                  ADDITIVECYCLE: Additive(False),
                  COLORROTATE  : ColorRotate(),
-                 COLORCHASE   : ColorChase(6, 64)}
+                 COLORCHASE   : ColorChase(10, 64)}
