@@ -113,8 +113,8 @@ class Rainbow(BaseAnimation):
 
     def step(self, strip):
         for i in range(len(strip)):
-            strip.setPixelColor(i, self.wheel((i + self.counter.i) % 384))
-        self.counter += 5
+            strip.setPixelColor(i, self.wheel(self.counter.i % 384))
+        self.counter += 1
         return True
 
 class Droplets(BaseAnimation):
@@ -141,13 +141,13 @@ class Droplets(BaseAnimation):
 class RainbowCycle(BaseAnimation):
     def __init__(self, wait=0.01):
         super(RainbowCycle, self).__init__(wait)
-        self.counter = ModCounter(384 * 5)
+        self.counter = ModCounter(384)
         self.name = "Rainbow Cycle"
 
     def step(self, strip):
         for i in range(len(strip)):
             strip.setPixelColor(i, self.wheel(((i * 384 / len(strip)) + self.counter.i) % 384))
-        self.counter += 1
+        self.counter += 5
         return True
 
 
