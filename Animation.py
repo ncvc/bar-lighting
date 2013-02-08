@@ -84,18 +84,19 @@ class ColorChase(BaseAnimation):
         if self.color_change_counter == 0:
             self.color_counter += 1
 
+
+        #for i in range(len(strip)):
+        #    if i % self.spacing  == self.spacing_counter.i:
+        #        strip.setPixelColor(i, Colors.COLORS[self.color_counter.i].rgb())
+
+        #    if ((i + 1) % self.spacing) == self.spacing_counter.i:
+        #        strip.setPixelColor(i, [0, 0, 0])
+
         for i in range(len(strip)):
-            if i % self.spacing  == self.spacing_counter.i:
+            if ((self.spacing - 1) - (i % self.spacing))  == self.spacing_counter.i:
                 strip.setPixelColor(i, Colors.COLORS[self.color_counter.i].rgb())
 
-            if ((i + 1) % self.spacing) == self.spacing_counter.i:
-                strip.setPixelColor(i, [0, 0, 0])
-
-        for i in range(len(strip)):
-            if i % self.spacing  == 5 - self.spacing_counter.i:
-                strip.setPixelColor(i, Colors.COLORS[self.color_counter.i + 1].rgb())
-
-            if ((i - 1) % self.spacing) == 5 - self.spacing_counter.i:
+            if ((self.spacing - 1) - ((i - 1) % self.spacing)) == self.spacing_counter.i:
                 strip.setPixelColor(i, [0, 0, 0])
 
         return True
@@ -450,4 +451,4 @@ ANIMATIONS    = {COLORWIPE    : ColorWipe(),
                  ADDITIVEFADE : Additive(True),
                  ADDITIVECYCLE: Additive(False),
                  COLORROTATE  : ColorRotate(),
-                 COLORCHASE   : ColorChase(6, 64)}
+                 COLORCHASE   : ColorChase(10, 64)}
