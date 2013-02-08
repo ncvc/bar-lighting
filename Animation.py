@@ -76,28 +76,32 @@ class ColorChase(BaseAnimation):
         self.spacing_counter = ModCounter(spacing);
         self.color_change_counter = ModCounter(color_change_length)
         self.name = "Color Chase"
+        self.color = Colors.COLORS[0]
 
     def step(self, strip):
+        if self.color_change_counter == 0:
+            temp = self.color
+            while temp == self.color:
+                temp = random.choice(Colors.COLORS)
+            self.color = temp
+
         self.color_change_counter += 1
         self.spacing_counter += 1
-        
-        if self.color_change_counter == 0:
-            self.color_counter += 1
-
-
-        #for i in range(len(strip)):
-        #    if i % self.spacing  == self.spacing_counter.i:
-        #        strip.setPixelColor(i, Colors.COLORS[self.color_counter.i].rgb())
-
-        #    if ((i + 1) % self.spacing) == self.spacing_counter.i:
-        #        strip.setPixelColor(i, [0, 0, 0])
 
         for i in range(len(strip)):
-            if ((self.spacing - 1) - (i % self.spacing))  == self.spacing_counter.i:
-                strip.setPixelColor(i, Colors.COLORS[self.color_counter.i].rgb())
+            if i % self.spacing  == self.spacing_counter.i:
+               strip.setPixelColor(i, self.color.rgb())
 
-            if ((self.spacing - 1) - ((i - 1) % self.spacing)) == self.spacing_counter.i:
+            if ((i + 1) % self.spacing) == self.spacing_counter.i:
                 strip.setPixelColor(i, [0, 0, 0])
+
+        #reverse direction
+        #for i in range(len(strip)):
+        #    if ((self.spacing - 1) - (i % self.spacing)) == self.spacing_counter.i:
+        #        strip.setPixelColor(i, self.color2.rgb())
+
+        #    if ((self.spacing - 1) - ((i - 1) % self.spacing)) == self.spacing_counter.i:
+        #        strip.setPixelColor(i, [0, 0, 0])
 
         return True
 
@@ -424,7 +428,6 @@ BLINKONCE      = 'blinkonce'
 BLINKTWICE     = 'blinktwice'
 MUSIC          = 'music'
 DROPLETS       = 'droplets'
-ADDITIVEFADE   = 'additivefade'
 ADDITIVECYCLE  = 'additivecycle'
 COLORROTATE    = 'colorrotate'
 COLORCHASE     = 'colorchase'
@@ -432,7 +435,6 @@ COLORCHASE     = 'colorchase'
 DYNAMIC_ANIMATIONS = [COLORWIPE,
                       RAINBOW,
                       RAINBOWCYCLE,
-                      ADDITIVEFADE,
                       ADDITIVECYCLE,
                       DROPLETS,
                       COLORROTATE,
@@ -443,12 +445,9 @@ ANIMATIONS    = {COLORWIPE    : ColorWipe(),
                  RAINBOWCYCLE : RainbowCycle(),
                  BLACKOUT     : StaticColor(Colors.BLACKOUT),
                  RANDOM       : RandomChoice(),
-                 BLINKONCE    : Blink(1),
-                 BLINKTWICE   : Blink(2),
                  COLOR        : StaticColor(Colors.CUSTOM),
                  MUSIC        : MusicReactive(),
                  DROPLETS     : Droplets(),
-                 ADDITIVEFADE : Additive(True),
                  ADDITIVECYCLE: Additive(False),
                  COLORROTATE  : ColorRotate(),
-                 COLORCHASE   : ColorChase(10, 64)}
+                 COLORCHASE   : ColorChase(4, 64)}
