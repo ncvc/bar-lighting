@@ -69,7 +69,7 @@ class ColorRotate(BaseAnimation):
         return True
 
 class ColorChase(BaseAnimation):
-    def __init__(self, spacing, color_change_length, wait=0.05):
+    def __init__(self, spacing, color_change_length, wait=.05):
         super(ColorChase, self).__init__(wait=wait)
         self.color_counter = ModCounter(len(Colors.COLORS))
         self.spacing = spacing
@@ -88,7 +88,7 @@ class ColorChase(BaseAnimation):
             if i % self.spacing  == self.spacing_counter.i:
                 strip.setPixelColor(i, Colors.COLORS[self.color_counter.i].rgb())
 
-            if i % self.spacing  == self.spacing_counter.i - 1:
+            if ((i + 1) % self.spacing) == self.spacing_counter.i:
                 strip.setPixelColor(i, [0, 0, 0])
 
         return True
