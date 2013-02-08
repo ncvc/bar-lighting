@@ -104,9 +104,9 @@ class Animator(StreamServer, object):
         elif command == ButtonEvent.LONGPRESS:
             animation = Animation.ANIMATIONS[Animation.BLACKOUT]
 
-        elif command == ControlCommand.TOGGLEXMASMODE:
-            self.xmastoggle = not self.xmastoggle
-            self.strip.enableXmasMode(self.xmastoggle)
+        #elif command == ControlCommand.TOGGLEXMASMODE:
+        #    self.xmastoggle = not self.xmastoggle
+        #    self.strip.enableXmasMode(self.xmastoggle)
 
         else:
             animation = Animation.ANIMATIONS.get(command)
@@ -184,7 +184,7 @@ class ButtonMonitor(threading.Thread, object):
         single_press_validate_count = 0
         
         long_press_validate_threshold   = 150
-        single_press_validate_threshold = 25
+        single_press_validate_threshold = 15
         
         while not self.stop_request.isSet():
             input_value  = not GPIO.input(INPUT_PIN)

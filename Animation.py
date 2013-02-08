@@ -152,7 +152,7 @@ class Additive(BaseAnimation):
         super(Additive, self).__init__(wait)
         self.color = None
         self.buffer = None
-        self.step_size = .1
+        self.step_size = .2
         self.fade = fade
         self.name = 'Additive Fade' if fade else 'Additive Cycle'
         self.tolerance = .85
@@ -268,13 +268,13 @@ class MusicReactive(BaseAnimation):
         self.name = "MusicReactive"
         self.queue = [0] * self.RATE * QUEUE_SECONDS
 
-        self.p = pyaudio.PyAudio()
+        #self.p = pyaudio.PyAudio()
 
-        self.stream = self.p.open(format=FORMAT,
-                             channels=CHANNELS,
-                             rate=self.RATE,
-                             input=True,
-                             frames_per_buffer=self.CHUNK)
+        #self.stream = self.p.open(format=FORMAT,
+        #                     channels=CHANNELS,
+        #                     rate=self.RATE,
+        #                     input=True,
+        #                     frames_per_buffer=self.CHUNK)
 
     def getFreqs(self):
         while self.stream.get_read_available() >= self.CHUNK:
@@ -400,8 +400,7 @@ DYNAMIC_ANIMATIONS = [COLORWIPE,
                       STATICBLUE,
                       STATICMAGENTA,
                       STATICCYAN,
-                      STATICWHITE,
-                      BLACKOUT]
+                      STATICWHITE]
 
 ANIMATIONS    = {COLORWIPE    : ColorWipe(),
                  RAINBOW      : Rainbow(),
