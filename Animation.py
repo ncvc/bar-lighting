@@ -91,6 +91,13 @@ class ColorChase(BaseAnimation):
             if ((i + 1) % self.spacing) == self.spacing_counter.i:
                 strip.setPixelColor(i, [0, 0, 0])
 
+        for i in range(len(strip)):
+            if i % self.spacing  == 5 - self.spacing_counter.i:
+                strip.setPixelColor(i, Colors.COLORS[self.color_counter.i + 1].rgb())
+
+            if ((i - 1) % self.spacing) == 5 - self.spacing_counter.i:
+                strip.setPixelColor(i, [0, 0, 0])
+
         return True
 
 class Rainbow(BaseAnimation):
@@ -443,4 +450,4 @@ ANIMATIONS    = {COLORWIPE    : ColorWipe(),
                  ADDITIVEFADE : Additive(True),
                  ADDITIVECYCLE: Additive(False),
                  COLORROTATE  : ColorRotate(),
-                 COLORCHASE   : ColorChase(5, 64)}
+                 COLORCHASE   : ColorChase(6, 64)}
