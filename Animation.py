@@ -112,8 +112,7 @@ class Rainbow(BaseAnimation):
         self.name = "Rainbow"
 
     def step(self, strip):
-        for i in range(len(strip)):
-            strip.setPixelColor(i, self.wheel(self.counter.i % 384))
+        strip.setColor(self.wheel(self.counter.i % 384))
         self.counter += 1
         return True
 
@@ -121,7 +120,7 @@ class Droplets(BaseAnimation):
     def __init__(self, wait=0.05):
         super(Droplets, self).__init__(wait)
         self.buffer = None
-        self.add_rate = .3
+        self.add_rate = .9
         self.fade_rate = 5
         self.name = 'Droplets'
 
@@ -172,6 +171,25 @@ class ColorWipe(BaseAnimation):
         self.counter += 1
         return True
 
+
+class ColorStrobe(BaseAnimation):
+    def __init__(self, wait=.05):
+        super(ColorStrobe, self).__init__(wait)
+        self.name = "Color Strobe"
+        self.toggle = True
+        self.counter = ModCounter(384)
+
+    def step(self, strip):
+        if self.toggle:
+            color = self.wheel(self.counter.i % 384)
+            self.toggle = False
+        else:
+            color = Colors.BLACKOUT.rgb()
+            self.toggle = True
+
+        strip.setColor(color)
+        self.counter += 1
+        return True
 
 class Blink(BaseAnimation):
     def __init__(self, num_blinks, wait=.25):
@@ -419,35 +437,33 @@ class MusicCenterSlider(MusicReactive):
 # String constants
 COLORWIPE      = 'colorwipe'
 BLACKOUT       = 'blackout'
-COLOR          = 'color'
-BLACKOUT       = 'blackout'
 RANDOM         = 'randomchoice'
 RAINBOW        = 'rainbow'
 RAINBOWCYCLE   = 'rainbowcycle'
-BLINKONCE      = 'blinkonce'
-BLINKTWICE     = 'blinktwice'
 MUSIC          = 'music'
 DROPLETS       = 'droplets'
 ADDITIVECYCLE  = 'additivecycle'
 COLORROTATE    = 'colorrotate'
 COLORCHASE     = 'colorchase'
+COLORSTROBE    = 'color strobe'
 
 DYNAMIC_ANIMATIONS = [COLORWIPE,
                       RAINBOW,
                       RAINBOWCYCLE,
+                      COLORROTATE,
+                      COLORCHASE,
                       ADDITIVECYCLE,
                       DROPLETS,
-                      COLORROTATE,
-                      COLORCHASE]
+                      COLORSTROBE]
 
 ANIMATIONS    = {COLORWIPE    : ColorWipe(),
                  RAINBOW      : Rainbow(),
                  RAINBOWCYCLE : RainbowCycle(),
                  BLACKOUT     : StaticColor(Colors.BLACKOUT),
                  RANDOM       : RandomChoice(),
-                 COLOR        : StaticColor(Colors.CUSTOM),
                  MUSIC        : MusicReactive(),
                  DROPLETS     : Droplets(),
                  ADDITIVECYCLE: Additive(False),
                  COLORROTATE  : ColorRotate(),
-                 COLORCHASE   : ColorChase(4, 64)}
+                 COLORCHASE   : ColorChase(4, 64),
+                 COLORSTROBE  : ColorStrobe()}
