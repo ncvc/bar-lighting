@@ -68,6 +68,31 @@ class ColorRotate(BaseAnimation):
         self.counter += 1
         return True
 
+class ColorChase(BaseAnimation):
+    def __init__(self, spacing, color_change_length, wait=0.05):
+        super(ColorChase, self).__init__(wait=wait)
+        self.color_counter = ModCounter(len(Colors.COLORS))
+        self.spacing = spacing
+        self.spacing_counter = ModCounter(spacing);
+        self.color_change_counter = ModCounter(color_change_length)
+        self.name = "Color Chase"
+
+    def step(self, strip):
+        self.color_change_counter += 1
+        self.spacing_counter += 1
+        
+        if self.color_change_counter == 0:
+            self.color_counter += 1
+
+        for i in range(len(strip)):
+            if i % self.spacing  == self.spacing_counter.i:
+                strip.setPixelColor(i, Colors.COLORS[self.color_counter.i].rgb())
+
+            if i % self.spacing  == self.spacing_counter.i - 1:
+                strip.setPixelColor(i, [0, 0, 0])
+
+        return True
+
 class Rainbow(BaseAnimation):
     def __init__(self, wait=0.01):
         super(Rainbow, self).__init__(wait)
@@ -394,6 +419,7 @@ DROPLETS       = 'droplets'
 ADDITIVEFADE   = 'additivefade'
 ADDITIVECYCLE  = 'additivecycle'
 COLORROTATE    = 'colorrotate'
+COLORCHASE     = 'colorchase'
 
 DYNAMIC_ANIMATIONS = [COLORWIPE,
                       RAINBOW,
@@ -401,7 +427,8 @@ DYNAMIC_ANIMATIONS = [COLORWIPE,
                       ADDITIVEFADE,
                       ADDITIVECYCLE,
                       DROPLETS,
-                      COLORROTATE]
+                      COLORROTATE,
+                      COLORCHASE]
 
 ANIMATIONS    = {COLORWIPE    : ColorWipe(),
                  RAINBOW      : Rainbow(),
@@ -415,4 +442,5 @@ ANIMATIONS    = {COLORWIPE    : ColorWipe(),
                  DROPLETS     : Droplets(),
                  ADDITIVEFADE : Additive(True),
                  ADDITIVECYCLE: Additive(False),
-                 COLORROTATE  : ColorRotate()}
+                 COLORROTATE  : ColorRotate(),
+                 COLORCHASE   : ColorChase(5, 64)}
