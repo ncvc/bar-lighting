@@ -173,7 +173,7 @@ class ColorWipe(BaseAnimation):
 
 
 class ColorStrobe(BaseAnimation):
-    def __init__(self, wait=.05):
+    def __init__(self, wait=.001):
         super(ColorStrobe, self).__init__(wait)
         self.name = "Color Strobe"
         self.toggle = True
@@ -453,8 +453,7 @@ DYNAMIC_ANIMATIONS = [COLORWIPE,
                       COLORROTATE,
                       COLORCHASE,
                       ADDITIVECYCLE,
-                      DROPLETS,
-                      COLORSTROBE]
+                      DROPLETS]
 
 ANIMATIONS    = {COLORWIPE    : ColorWipe(),
                  RAINBOW      : Rainbow(),
