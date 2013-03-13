@@ -53,8 +53,8 @@ except AttributeError:
     NO_STRIP_ATTACHED = True
     StreamServer = SocketServer.BaseServer
 
-
-Animation.ANIMATIONS[MULTITEST] = Animations.MultiAnimation([Animation.ANIMATIONS[COLORCHASE], Animation.ANIMATIONS[DROPLETS]],
+length = STRIP_LENGTH
+Animation.ANIMATIONS[Animation.MULTITEST] = Animation.MultiAnimation([Animation.ANIMATIONS[Animation.COLORWIPE], Animation.ANIMATIONS[Animation.COLORWIPE]],
                                                             [Strip.Substrip(0, length/2 -1), Strip.Substrip(length/2, length - 1)])
 
 class ButtonEvent:

@@ -1,1 +1,1 @@
-sudo python /home/pi/bar_lighting/Animator.py &
+sudo python /home/pi/bar_lighting/Animator.py

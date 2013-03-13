@@ -5,6 +5,7 @@ import Queue
 import numpy as np
 import pyaudio
 import fractions
+import copy
 
 # Base Animation class that implements nearly all necessary functionality.
 # Implementing classes must override the step() method
@@ -435,19 +436,24 @@ class MusicCenterSlider(MusicReactive):
 
 class MultiAnimation(BaseAnimation):
     def __init__(self, animations, substrips):
-        super(MultiAnimation, self).__init__(wait=fractions.gcd([animation.wait() for animation in animations]))
+        super(MultiAnimation, self).__init__(wait=reduce(fractions.gcd, [animation.wait for animation in animations]))
         assert(len(animations) == len(substrips))
-        self.animations = animations
+        self.animations = [copy.deepcopy(a) for a in animations]
         self.substrips = substrips
         self.waits = [ModCounter(animation.wait) for animation in animations]
 
     def step(self, strip):
-        for i in range(len(animations)):
+        for i in range(len(self.animations)):
             if self.waits[i] == 0.0:
                 self.substrips[i].setStrip(strip)
                 self.animations[i].step(self.substrips[i])
             self.waits[i] += self.wait
         return True
+
+    def setup(self, strip):
+        for i in range(len(self.animations)):
+            self.substrips[i].setStrip(strip)
+            self.animations[i].setup(self.substrips[i])
 
     def __repr__(self):
         return "MultiAnimation: " + ", ".join([str(a) for a in self.animations])
@@ -472,7 +478,7 @@ DYNAMIC_ANIMATIONS = [COLORWIPE,
                       COLORROTATE,
                       COLORCHASE,
                       ADDITIVECYCLE,
-                      DROPLETS
+                      DROPLETS,
                       MULTITEST]
 
 ANIMATIONS    = {COLORWIPE    : ColorWipe(),
