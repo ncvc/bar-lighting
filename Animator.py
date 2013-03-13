@@ -54,13 +54,13 @@ except AttributeError:
     StreamServer = SocketServer.BaseServer
 
 
+Animation.ANIMATIONS[MULTITEST] = Animations.MultiAnimation([Animation.ANIMATIONS[COLORCHASE], Animation.ANIMATIONS[DROPLETS]],
+                                                            [Strip.Substrip(0, length/2 -1), Strip.Substrip(length/2, length - 1)])
+
 class ButtonEvent:
     SINGLEPRESS = 'singlepress'
     DOUBLEPRESS = 'doublepress'
     LONGPRESS   = 'longpress'
-
-class ControlCommand:
-    TOGGLEXMASMODE = 'togglexmasmode'
 
 class Animator(StreamServer, object):
     def __init__(self, handler, noStrip=NO_STRIP_ATTACHED):
@@ -83,7 +83,6 @@ class Animator(StreamServer, object):
             self.buttonmonitor.start()
 
         self.processCommand(ButtonEvent.SINGLEPRESS)
-        #self.processCommand(Animation.MUSIC)
 
     def processCommand(self, command):
         debugprint('Processing command: {0}'.format(command))
@@ -103,10 +102,6 @@ class Animator(StreamServer, object):
 
         elif command == ButtonEvent.LONGPRESS:
             animation = Animation.ANIMATIONS[Animation.BLACKOUT]
-
-        #elif command == ControlCommand.TOGGLEXMASMODE:
-        #    self.xmastoggle = not self.xmastoggle
-        #    self.strip.enableXmasMode(self.xmastoggle)
 
         else:
             animation = Animation.ANIMATIONS.get(command)

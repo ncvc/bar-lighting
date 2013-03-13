@@ -19,63 +19,17 @@ class BaseStrip(object):
         self.row_length = row_length
         self.rows = num_pixels / row_length
         self.columns = row_length
-        self.xmasMode   = False
         self.buffer     = [[0,0,0]] * num_pixels
 
     def setPixelColor(self, pixel, color):
         if pixel >= self.num_pixels:
             raise Exception("Invalid pixel index {0}".format(pixel))
-
         color = [max(0, min(i, MAX_BRIGHTNESS)) for i in color]
-
-        if self.xmasMode:
-            i=1
-            minBrightness = 50
-            if i == 0:
-                color[2] = 0
-            elif i==1:
-                distR = (color[0] - MAX_BRIGHTNESS)**2 + color[1]**2 + color[2]**2
-                distG = color[0]**2 + (color[1] - MAX_BRIGHTNESS)**2 + color[2]**2
-                if distR < distG:
-                    color = [MAX_BRIGHTNESS, 0, 0]
-                else:
-                    color = [0, MAX_BRIGHTNESS, 0]
-            elif i==2:
-                distR = (color[0] - MAX_BRIGHTNESS)**2 + color[1]**2 + color[2]**2
-                distG = color[0]**2 + (color[1] - MAX_BRIGHTNESS)**2 + color[2]**2
-                if distR < distG:
-                    color[1] = color[2] = 0
-                else:
-                    color[0] = color[2] = 0
-                color = [max(minBrightness, min(i, MAX_BRIGHTNESS)) for i in color]
-
         self.buffer[pixel] = [int(i) for i in color]
-
-    def setGridPixelColor(self, x, y, color):
-        if y % 2 == 0 :
-            x_offset = x
-        else:
-            x_offset = self.columns - x - 1
-        self.setPixelColor(x_offset + y * self.row_length, color)
-
-    def getGridPixelColor(self, x, y):
-        if y % 2 == 0 :
-            x_offset = x
-        else:
-            x_offset = self.columns - x - 1
-        return self.buffer[x_offset + y * self.row_length]
 
     def setColor(self, color):
         for i in range(self.num_pixels):
             self.setPixelColor(i, color)
-
-    def setColumnColor(self, column, color):
-        for row in range(self.rows):
-            self.setPixelColor(column, row, color)
-
-    def setRowColor(self, row, color):
-        for column in range(self.columns):
-            self.setPixelColor(column, row, color)
 
     def blackout(self):
         self.setColor([0,0,0])
@@ -83,9 +37,6 @@ class BaseStrip(object):
 
     def show(self):
         raise NotImplementedError("Do not use BaseStrip directly - try Strip or TestingStrip")
-
-    def enableXmasMode(self, enable=True):
-        self.xmasMode = enable
 
     def getPixelColor(self, i):
         return self.buffer[i]
@@ -115,6 +66,35 @@ class Strip(BaseStrip):
         self.device.flush()
         time.sleep(SHOW_SLEEP_TIME)
 
+class Substrip(object):
+    def __init__(self, start, end):
+        self.strip = None
+        self.start = start
+        self.end   = end
+        self.num_pixels = end - start + 1
+
+    def setPixelColor(self, pixel, color):
+        self.strip.setPixelColor(self.start + pixel, color)
+        
+    def setColor(self, color):
+        for i in range(self.num_pixels):
+            self.strip.setPixelColor(self.start + i, color)
+
+    def blackout(self):
+        for i in range(self.num_pixels):
+            self.strip.setPixelColor(self.start + i, [0, 0, 0])
+
+    def getPixelColor(self, i):
+        return self.strip.getPixelColor(self.start + i)
+
+    def setStrip(self, strip):
+        self.strip = strip
+
+    def __len__(self):
+        return self.num_pixels
+
+    def __getitem__(self, strip, i):
+        return self.strip[self.start + i]
 
 # Class for an on-screen testing strip
 class TestingStrip(BaseStrip):

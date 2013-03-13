@@ -4,7 +4,7 @@ from ModCounter import ModCounter
 import Queue
 import numpy as np
 import pyaudio
-
+import fractions
 
 # Base Animation class that implements nearly all necessary functionality.
 # Implementing classes must override the step() method
@@ -433,6 +433,24 @@ class MusicCenterSlider(MusicReactive):
 
         return True
 
+class MultiAnimation(BaseAnimation):
+    def __init__(self, animations, substrips):
+        super(MultiAnimation, self).__init__(wait=fractions.gcd([animation.wait() for animation in animations]))
+        assert(len(animations) == len(substrips))
+        self.animations = animations
+        self.substrips = substrips
+        self.waits = [ModCounter(animation.wait) for animation in animations]
+
+    def step(self, strip):
+        for i in range(len(animations)):
+            if self.waits[i] == 0.0:
+                self.substrips[i].setStrip(strip)
+                self.animations[i].step(self.substrips[i])
+            self.waits[i] += self.wait
+        return True
+
+    def __repr__(self):
+        return "MultiAnimation: " + ", ".join([str(a) for a in self.animations])
 
 # String constants
 COLORWIPE      = 'colorwipe'
@@ -446,6 +464,7 @@ ADDITIVECYCLE  = 'additivecycle'
 COLORROTATE    = 'colorrotate'
 COLORCHASE     = 'colorchase'
 COLORSTROBE    = 'color strobe'
+MULTITEST      = 'multitest'
 
 DYNAMIC_ANIMATIONS = [COLORWIPE,
                       RAINBOW,
@@ -453,7 +472,8 @@ DYNAMIC_ANIMATIONS = [COLORWIPE,
                       COLORROTATE,
                       COLORCHASE,
                       ADDITIVECYCLE,
-                      DROPLETS]
+                      DROPLETS
+                      MULTITEST]
 
 ANIMATIONS    = {COLORWIPE    : ColorWipe(),
                  RAINBOW      : Rainbow(),
