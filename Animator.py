@@ -53,9 +53,8 @@ except AttributeError:
     NO_STRIP_ATTACHED = True
     StreamServer = SocketServer.BaseServer
 
-length = STRIP_LENGTH
-Animation.ANIMATIONS[Animation.MULTITEST] = Animation.MultiAnimation([Animation.ANIMATIONS[Animation.COLORWIPE], Animation.ANIMATIONS[Animation.COLORWIPE]],
-                                                            [Strip.Substrip(0, length/2 -1), Strip.Substrip(length/2, length - 1)])
+#Animation.ANIMATIONS[Animation.MULTITEST] = Animation.MultiAnimation([Animation.ANIMATIONS[Animation.COLORWIPE], Animation.ANIMATIONS[Animation.COLORWIPE]],
+#                                                            [Strip.Substrip(lambda length : 0, lambda length: length/2 -1), Strip.Substrip(lambda length : length/2, lambda length: length - 1)])
 
 class ButtonEvent:
     SINGLEPRESS = 'singlepress'
@@ -67,9 +66,9 @@ class Animator(StreamServer, object):
         super(Animator, self).__init__(SOCKET_NAME, handler)
         self.queue         = Queue.Queue(1)
         if noStrip:
-            strip          = Strip.TestingStrip(STRIP_LENGTH, ROW_LENGTH)
+            strip          = Strip.SimulationStrip(STRIP_LENGTH, ROW_LENGTH)
         else: 
-            strip          = Strip.Strip(STRIP_LENGTH, ROW_LENGTH)
+            strip          = Strip.HardwareStrip(STRIP_LENGTH)
         self.strip         = strip
         self.xmastoggle    = False
 
