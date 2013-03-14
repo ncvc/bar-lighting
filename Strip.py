@@ -47,11 +47,10 @@ class Strip(BaseStrip):
         self.buffer = [[0,0,0]] * length
 
     def setPixelColor(self, pixel, color):
-        self.buffer[pixel] = [int(max(0, min(i, MAX_BRIGHTNESS))) for i in color]
+        self.buffer[pixel] = [int(i) for i in color]
 
     def getPixelColor(self, pixel):
-        # forces assignment of pixel colors using setPixelColor
-        return copy.deepcopy(self.buffer[pixel])
+        return self.buffer[pixel]
 
     def setColor(self, color):
         for pixel in range(self.length):

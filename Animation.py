@@ -437,25 +437,28 @@ class MusicCenterSlider(MusicReactive):
 """
 class MultiAnimation(BaseAnimation):
     def __init__(self, animations, substrips):
-        super(MultiAnimation, self).__init__(wait=reduce(fractions.gcd, [animation.wait for animation in animations]))
+        smallest_wait = min([animation.wait for animation in animations])
+        super(MultiAnimation, self).__init__(wait=smallest_wait)
+        print self.wait
         assert(len(animations) == len(substrips))
         self.animations = animations
         self.substrips = substrips
-        self.waits = [ModCounter(animation.wait) for animation in animations]
+        self.waits = [ModCounter(int(animation.wait / smallest_wait)) for animation in animations]
 
     def step(self, strip):
         for i in range(len(self.animations)):
-            if self.waits[i] == 0.0:
+            if self.waits[i] == 0:
                 self.animations[i].step(self.substrips[i])
-            self.waits[i] += self.wait
+            self.waits[i] += 1
         return True
 
-    def setStrip(self, strip):
-        for i in range(len(self.substrips)):
-            self.substrips[i].setStrip(strip)
+#    def setStrip(self, strip):
+#        for i in range(len(self.substrips)):
+#            self.substrips[i].setStrip(strip)
 
     def setup(self, strip):
         for i in range(len(self.animations)):
+            self.substrips[i].setStrip(strip)
             self.animations[i].setup(self.substrips[i])
 
     def __repr__(self):
@@ -475,15 +478,15 @@ COLORCHASE     = 'colorchase'
 COLORSTROBE    = 'color strobe'
 MULTITEST      = 'multitest'
 
-MULTIANIMATIONS = [MULTITEST]
-
-DYNAMIC_ANIMATIONS = [COLORWIPE,
+DYNAMIC_ANIMATIONS = [MULTITEST,
+                      COLORWIPE,
                       RAINBOW,
                       RAINBOWCYCLE,
                       COLORROTATE,
                       COLORCHASE,
                       ADDITIVECYCLE,
-                      DROPLETS] + MULTIANIMATIONS
+                      DROPLETS,
+                      MULTITEST]
 
 ANIMATIONS    = {COLORWIPE    : ColorWipe(),
                  RAINBOW      : Rainbow(),
@@ -496,6 +499,6 @@ ANIMATIONS    = {COLORWIPE    : ColorWipe(),
                  COLORROTATE  : ColorRotate(),
                  COLORCHASE   : ColorChase(4, 64),
                  COLORSTROBE  : ColorStrobe(),
-                 MULTITEST    : MultiAnimation([ColorWipe(), ColorWipe()],
+                 MULTITEST    : MultiAnimation([ColorChase(4, 32), Droplets()],
                                                [Strip.Substrip(lambda length : 0, lambda length: length/2 -1), Strip.Substrip(lambda length : length/2, lambda length: length - 1)])
 }

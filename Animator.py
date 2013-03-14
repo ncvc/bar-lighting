@@ -68,11 +68,6 @@ class Animator(StreamServer, object):
             strip          = Strip.HardwareStrip(STRIP_LENGTH)
         self.strip         = strip
 
-        for multianimation in Animation.MULTIANIMATIONS:
-                Animation.ANIMATIONS[multianimation].setStrip(strip)
-
-        self.xmastoggle    = False
-
         self.counter     = ModCounter(len(Animation.DYNAMIC_ANIMATIONS))
 
         self.stepper = Stepper(self.queue, Animation.ANIMATIONS[Animation.BLACKOUT], strip)
