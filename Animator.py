@@ -53,9 +53,6 @@ except AttributeError:
     NO_STRIP_ATTACHED = True
     StreamServer = SocketServer.BaseServer
 
-#Animation.ANIMATIONS[Animation.MULTITEST] = Animation.MultiAnimation([Animation.ANIMATIONS[Animation.COLORWIPE], Animation.ANIMATIONS[Animation.COLORWIPE]],
-#                                                            [Strip.Substrip(lambda length : 0, lambda length: length/2 -1), Strip.Substrip(lambda length : length/2, lambda length: length - 1)])
-
 class ButtonEvent:
     SINGLEPRESS = 'singlepress'
     DOUBLEPRESS = 'doublepress'
@@ -70,6 +67,10 @@ class Animator(StreamServer, object):
         else: 
             strip          = Strip.HardwareStrip(STRIP_LENGTH)
         self.strip         = strip
+
+        for multianimation in Animation.MULTIANIMATIONS:
+                Animation.ANIMATIONS[multianimation].setStrip(strip)
+
         self.xmastoggle    = False
 
         self.counter     = ModCounter(len(Animation.DYNAMIC_ANIMATIONS))

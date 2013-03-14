@@ -1,9 +1,10 @@
 import random
 import Colors
+import Strip
 from ModCounter import ModCounter
 import Queue
 import numpy as np
-import pyaudio
+#import pyaudio
 import fractions
 import copy
 
@@ -320,7 +321,7 @@ class RandomChoice(BaseAnimation):
 
         return self.blink_counter > 2 * self.num_blinks
 
-
+"""
 # Abstract class to react to mic input
 class MusicReactive(BaseAnimation):
     def __init__(self):
@@ -433,26 +434,28 @@ class MusicCenterSlider(MusicReactive):
         self.strip.setPixelColor(int(self.slider), self.color * (self.slider - int(self.slider)))
 
         return True
-
+"""
 class MultiAnimation(BaseAnimation):
     def __init__(self, animations, substrips):
         super(MultiAnimation, self).__init__(wait=reduce(fractions.gcd, [animation.wait for animation in animations]))
         assert(len(animations) == len(substrips))
-        self.animations = [copy.deepcopy(a) for a in animations]
+        self.animations = animations
         self.substrips = substrips
         self.waits = [ModCounter(animation.wait) for animation in animations]
 
     def step(self, strip):
         for i in range(len(self.animations)):
             if self.waits[i] == 0.0:
-                self.substrips[i].setStrip(strip)
                 self.animations[i].step(self.substrips[i])
             self.waits[i] += self.wait
         return True
 
+    def setStrip(self, strip):
+        for i in range(len(self.substrips)):
+            self.substrips[i].setStrip(strip)
+
     def setup(self, strip):
         for i in range(len(self.animations)):
-            self.substrips[i].setStrip(strip)
             self.animations[i].setup(self.substrips[i])
 
     def __repr__(self):
@@ -472,23 +475,27 @@ COLORCHASE     = 'colorchase'
 COLORSTROBE    = 'color strobe'
 MULTITEST      = 'multitest'
 
+MULTIANIMATIONS = [MULTITEST]
+
 DYNAMIC_ANIMATIONS = [COLORWIPE,
                       RAINBOW,
                       RAINBOWCYCLE,
                       COLORROTATE,
                       COLORCHASE,
                       ADDITIVECYCLE,
-                      DROPLETS,
-                      MULTITEST]
+                      DROPLETS] + MULTIANIMATIONS
 
 ANIMATIONS    = {COLORWIPE    : ColorWipe(),
                  RAINBOW      : Rainbow(),
                  RAINBOWCYCLE : RainbowCycle(),
                  BLACKOUT     : StaticColor(Colors.BLACKOUT),
                  RANDOM       : RandomChoice(),
-                 MUSIC        : MusicReactive(),
+                 #MUSIC        : MusicReactive(),
                  DROPLETS     : Droplets(),
                  ADDITIVECYCLE: Additive(False),
                  COLORROTATE  : ColorRotate(),
                  COLORCHASE   : ColorChase(4, 64),
-                 COLORSTROBE  : ColorStrobe()}
+                 COLORSTROBE  : ColorStrobe(),
+                 MULTITEST    : MultiAnimation([ColorWipe(), ColorWipe()],
+                                               [Strip.Substrip(lambda length : 0, lambda length: length/2 -1), Strip.Substrip(lambda length : length/2, lambda length: length - 1)])
+}
