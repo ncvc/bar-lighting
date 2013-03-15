@@ -5,8 +5,6 @@ from ModCounter import ModCounter
 import Queue
 import numpy as np
 #import pyaudio
-import fractions
-import copy
 
 # Base Animation class that implements nearly all necessary functionality.
 # Implementing classes must override the step() method
@@ -499,6 +497,5 @@ ANIMATIONS    = {COLORWIPE    : ColorWipe(),
                  COLORROTATE  : ColorRotate(),
                  COLORCHASE   : ColorChase(4, 64),
                  COLORSTROBE  : ColorStrobe(),
-                 MULTITEST    : MultiAnimation([ColorChase(4, 32), Droplets()],
-                                               [Strip.Substrip(lambda length : 0, lambda length: length/2 -1), Strip.Substrip(lambda length : length/2, lambda length: length - 1)])
-}
+                 MULTITEST    : MultiAnimation([ColorChase(4, 32), ColorChase(4, 32), ColorChase(4, 32), ColorChase(4, 32)],
+                                               [Strip.FirstQuarterSubstrip(True), Strip.SecondQuarterSubstrip(), Strip.ThirdQuarterSubstrip(True), Strip.FourthQuarterSubstrip()])}

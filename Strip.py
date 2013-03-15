@@ -63,19 +63,26 @@ class Strip(BaseStrip):
         raise NotImplementedError("Do not use Strip directly - try HardwareStrip or SimulationStrip")
 
 class Substrip(BaseStrip):
-    def __init__(self, start_fcn, end_fcn):
+    def __init__(self, start_fcn, end_fcn, reverse=False):
         super(Substrip, self).__init__(0)
         self.start_fcn = start_fcn
         self.end_fcn = end_fcn
         self.strip = None
         self.start = 0
         self.end   = 0
+        self.reverse = reverse
 
     def setPixelColor(self, pixel, color):
-        self.strip.setPixelColor(self.start + pixel, color)
+        if not self.reverse:
+            self.strip.setPixelColor(self.start + pixel, color)
+        else:
+            self.strip.setPixelColor(self.end - pixel, color)
 
     def getPixelColor(self, pixel):
-        return self.strip.getPixelColor(self.start + pixel)
+        if not self.reverse:
+            return self.strip.getPixelColor(self.start + pixel)
+        else:
+            return self.strip.getPixelColor(self.end - pixel)
 
     def setColor(self, color):
         for pixel in range(len(self)):
@@ -93,6 +100,30 @@ class Substrip(BaseStrip):
         self.start = self.start_fcn(len(strip))
         self.end = self.end_fcn(len(strip))
         self.length = self.end - self.start + 1
+
+class FirstHalfSubstrip(Substrip):
+    def __init__(self, reverse=False):
+        super(FirstHalfSubstrip, self).__init__(lambda length: 0, lambda length: length / 2 - 1, reverse)
+
+class SecondHalfSubstrip(Substrip):
+    def __init__(self, reverse=False):
+        super(SecondHalfSubstrip, self).__init__(lambda length: length / 2, lambda length: length - 1, reverse)
+
+class FirstQuarterSubstrip(Substrip):
+    def __init__(self, reverse=False):
+        super(FirstQuarterSubstrip, self).__init__(lambda length: 0, lambda length: length / 4 - 1, reverse)
+
+class SecondQuarterSubstrip(Substrip):
+    def __init__(self, reverse=False):
+        super(SecondQuarterSubstrip, self).__init__(lambda length: length / 4, lambda length: length / 2- 1, reverse)
+
+class ThirdQuarterSubstrip(Substrip):
+    def __init__(self, reverse=False):
+        super(ThirdQuarterSubstrip, self).__init__(lambda length: length / 2, lambda length: length / 2 + length / 4 - 1, reverse)
+
+class FourthQuarterSubstrip(Substrip):
+    def __init__(self, reverse=False):
+        super(FourthQuarterSubstrip, self).__init__(lambda length: length / 2 + length / 4 - 1, lambda length: length - 1, reverse)
         
 class HardwareStrip(Strip):
     def __init__(self, length, device_name=DEV_PATH):
