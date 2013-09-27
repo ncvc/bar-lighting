@@ -1,9 +1,10 @@
 import random
 import Colors
+import datetime
 from ModCounter import ModCounter
 import Queue
-import numpy as np
-import pyaudio
+#import numpy as np
+#import pyaudio
 
 
 # Base Animation class that implements nearly all necessary functionality.
@@ -40,6 +41,12 @@ class BaseAnimation(object):
 
         return [r, g, b]
 
+    def get_wait(self):
+        return self.wait
+
+    def should_autorun(self):
+        return True
+
     def __repr__(self):
         return self.name
 
@@ -53,6 +60,9 @@ class StaticColor(BaseAnimation):
         strip.setColor(self.color.rgb())
         return True
 
+    def should_autorun(self):
+        return self.color != Colors.BLACKOUT
+    
     def __repr__(self):
         return str(self.color)
 
@@ -147,10 +157,13 @@ class Blink(BaseAnimation):
         self.i += 1
         return self.i > self.num_blinks * 2
 
+    def should_autorun(self):
+        return False
+
 class Additive(BaseAnimation):
     def __init__(self, fade=True, wait=0.01):
         super(Additive, self).__init__(wait)
-        self.color = None
+        self.color = Colors.BLACKOUT
         self.buffer = None
         self.step_size = .1
         self.fade = fade
@@ -253,7 +266,44 @@ class RandomChoice(BaseAnimation):
 
         return self.blink_counter > 2 * self.num_blinks
 
+    def should_autorun(self):
+        return False
 
+class AutoRun(BaseAnimation):
+    def __init__(self, animations, change_time=30):
+        super(AutoRun, self).__init__(wait=1)
+        if len(animations) == 0:
+            raise Exception("AutoRun animation must be initialized with one or more Animations")
+        self.animations = animations
+        self.counter = ModCounter(len(self.animations))
+        self.current_animation = animations[self.counter.i]
+        self.current_animation_start_time = datetime.datetime.now()
+        self.change_time = datetime.timedelta(seconds=change_time)
+        self.name = "AutoRun"
+
+    def get_wait(self):
+        return self.current_animation.get_wait()
+
+    def should_autorun(self):
+        return False
+
+    def setup(self, strip):
+        self.current_animation.setup(strip)
+
+    def step(self, strip):
+        now = datetime.datetime.now()
+        if now - self.current_animation_start_time > self.change_time:
+            self.counter += 1
+            self.current_animation = self.animations[self.counter.i]
+            self.current_animation_start_time = now
+            self.setup(strip)
+
+        return self.current_animation.step(strip)
+
+    def __repr__(self):
+        return "AutoRun with {0} animations. Currently: {1}".format(len(self.animations), str(self.current_animation))
+
+"""
 # Abstract class to react to mic input
 class MusicReactive(BaseAnimation):
     def __init__(self):
@@ -366,12 +416,12 @@ class MusicCenterSlider(MusicReactive):
         self.strip.setPixelColor(int(self.slider), self.color * (self.slider - int(self.slider)))
 
         return True
-
+"""
 
 # String constants
 COLORWIPE      = 'colorwipe'
 BLACKOUT       = 'blackout'
-COLOR          = 'color'
+#COLOR          = 'color'
 STATICRED      = 'staticred'
 STATICBLUE     = 'staticblue'
 STATICGREEN    = 'staticgreen'
@@ -388,20 +438,8 @@ MUSIC          = 'music'
 DROPLETS       = 'droplets'
 ADDITIVEFADE   = 'additivefade'
 ADDITIVECYCLE  = 'additivecycle'
+AUTORUN        = 'autorun'
 
-DYNAMIC_ANIMATIONS = [COLORWIPE,
-                      RAINBOW,
-                      RAINBOWCYCLE,
-                      ADDITIVEFADE,
-                      ADDITIVECYCLE,
-                      DROPLETS,
-                      STATICRED,
-                      STATICGREEN,
-                      STATICBLUE,
-                      STATICMAGENTA,
-                      STATICCYAN,
-                      STATICWHITE,
-                      BLACKOUT]
 
 ANIMATIONS    = {COLORWIPE    : ColorWipe(),
                  RAINBOW      : Rainbow(),
@@ -416,8 +454,13 @@ ANIMATIONS    = {COLORWIPE    : ColorWipe(),
                  RANDOM       : RandomChoice(),
                  BLINKONCE    : Blink(1),
                  BLINKTWICE   : Blink(2),
-                 COLOR        : StaticColor(Colors.CUSTOM),
-                 MUSIC        : MusicReactive(),
+#                 COLOR        : StaticColor(Colors.CUSTOM),
+#                 MUSIC        : MusicReactive(),
                  DROPLETS     : Droplets(),
                  ADDITIVEFADE : Additive(True),
                  ADDITIVECYCLE: Additive(False)}
+
+
+DYNAMIC_ANIMATIONS = [animation for identifier, animation in ANIMATIONS.items() if animation.should_autorun()]
+
+ANIMATIONS[AUTORUN] = AutoRun(DYNAMIC_ANIMATIONS)

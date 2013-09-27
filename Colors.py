@@ -20,6 +20,10 @@ class Color(object):
     # Scales the current color
     def __div__(self, other):
         return Color('Custom', self.r / other, self.g / other, self.b / other)
+    
+    def __eq__(self, other):
+        return self.r == other.r and self.g == other.g and self.b == other.b
+
 
     def __repr__(self):
         return "{0}, R: {1} G: {2} B: {3}".format(self.name, self.r, self.g, self.b)
@@ -74,6 +78,6 @@ YELLOW   = Yellow()
 CYAN     = Cyan()
 WHITE    = White()
 BLACKOUT = Blackout()
-CUSTOM   = Custom()
+#CUSTOM   = Custom()
 
 COLORS = [RED, GREEN, BLUE, MAGENTA, YELLOW, CYAN, WHITE]

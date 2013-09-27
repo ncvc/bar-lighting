@@ -106,8 +106,8 @@ class Strip(BaseStrip):
     def show(self):
         for i in range(self.num_pixels):
             r, g, b = self[i]
-            self.device.write(chr(r | 0x80))
             self.device.write(chr(g | 0x80))
+            self.device.write(chr(r | 0x80))
             self.device.write(chr(b | 0x80))
             self.device.flush()
         self.device.write(bytearray(b'\x00\x00\x00'))  # zero fill the last to prevent stray colors at the end

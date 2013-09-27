@@ -20,6 +20,8 @@ parser.add_argument("-v", "--verbose", help="show the debug statements", action=
 parser.add_argument("-s", "--simulate", help="run in simulation", action="store_true")
 parser.add_argument("-l", "--length", help="set the strip length", default=DEFAULT_STRIP_LENGTH, type=int)
 parser.add_argument("-r", "--rowlength", help="set the row length", default=DEFAULT_ROW_LENGTH, type=int)
+parser.add_argument("-b", "--button", help="run with the button control", action="store_true")
+
 if __name__ == "__main__":
     args = parser.parse_args()
 else:
@@ -29,6 +31,7 @@ DEBUG = args.verbose
 SIMULATE = args.simulate
 STRIP_LENGTH = args.length
 ROW_LENGTH = min(args.rowlength, STRIP_LENGTH)
+USE_BUTTON = args.button
 
 def debugprint(msg):
     if DEBUG:
@@ -61,6 +64,7 @@ class ButtonEvent:
 
 class ControlCommand:
     TOGGLEXMASMODE = 'togglexmasmode'
+    SHUTDOWN = 'shutdown'
 
 class Animator(StreamServer, object):
     def __init__(self, handler, noStrip=NO_STRIP_ATTACHED):
@@ -78,12 +82,11 @@ class Animator(StreamServer, object):
         self.stepper = Stepper(self.queue, Animation.ANIMATIONS[Animation.BLACKOUT], strip)
         self.stepper.start()
 
-        if GPIO_AVAILABLE:
+        if GPIO_AVAILABLE and USE_BUTTON:
             self.buttonmonitor = ButtonMonitor()
             self.buttonmonitor.start()
 
         self.processCommand(ButtonEvent.SINGLEPRESS)
-        #self.processCommand(Animation.MUSIC)
 
     def processCommand(self, command):
         debugprint('Processing command: {0}'.format(command))
@@ -107,7 +110,7 @@ class Animator(StreamServer, object):
         elif command == ControlCommand.TOGGLEXMASMODE:
             self.xmastoggle = not self.xmastoggle
             self.strip.enableXmasMode(self.xmastoggle)
-
+        
         else:
             animation = Animation.ANIMATIONS.get(command)
 
@@ -119,7 +122,9 @@ class Animator(StreamServer, object):
 
     def shutdown(self):
         self.stepper.join()
-        self.buttonmonitor.join()
+        if USE_BUTTON:
+            self.buttonmonitor.join()
+
         super(Animator, self).shutdown()
 
 class AnimationRequestHandler(SocketServer.StreamRequestHandler):
@@ -140,11 +145,11 @@ class Stepper(threading.Thread, object):
         anim.setup(strip)
 
     def run(self):
-        print 'Stepper thread started'
+        debugprint('Stepper thread started')
         while not self.stop_request.isSet():
             done = self.animation.step(self.strip)
             self.strip.show()
-            time.sleep(self.animation.wait)
+            time.sleep(self.animation.get_wait())
             if done:
                 try:
                     next_animation = self.queue.get(False)
@@ -153,12 +158,11 @@ class Stepper(threading.Thread, object):
                     self.animation = next_animation
                     self.animation.setup(self.strip)
                     debugprint('Stepper retrieved {0} from queue'.format(self.animation))
-                    print self.animation
                 except Queue.Empty:
                     pass
 
     def join(self, timeout=None):
-        print 'Stepper thread exiting'
+        debugprint('Stepper thread exiting')
         self.stop_request.set()
         super(Stepper, self).join(timeout)
 
@@ -179,7 +183,7 @@ class ButtonMonitor(threading.Thread, object):
         GPIO.setup(INPUT_PIN, GPIO.IN)
 	
     def run(self):
-        print "Button Monitor thread started"
+        debugprint("Button Monitor thread started")
         long_press_validate_count   = 0
         single_press_validate_count = 0
         
@@ -195,7 +199,7 @@ class ButtonMonitor(threading.Thread, object):
             elif self.state == States.LONGPRESSVALIDATE:
                 if input_value:
                     if long_press_validate_count > long_press_validate_threshold:
-                        self.state = States.LONGPRESS
+                        Self.state = States.LONGPRESS
                         long_press_validate_count = 0
                         sendMessage(ButtonEvent.LONGPRESS)
                     else:
@@ -228,9 +232,10 @@ class ButtonMonitor(threading.Thread, object):
             time.sleep(self.wait)
 
     def join(self, timeout=None):
-        print "Button Monitor thread exiting"
+        debugprint("Button Monitor thread exiting")
         self.stop_request.set()
         super(ButtonMonitor, self).join(timeout)
+
 
 def sendMessage(message):
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -244,35 +249,66 @@ def sendMessage(message):
         elif e.errno == 111:
             print "{0}\nError connecting to socket {1}\nMake sure the server is running and is on this socket".format(e, SOCKET_NAME)
         else:
-            print e
+            print "An IOError occurred: ", e
     except Exception as e:
-        print e
+        print "An error occurred: ", e
     finally:
         sock.close()
 
+class RunServer(threading.Thread, object):
+    def __init__(self, simulate):
+        super(RunServer, self).__init__()
+        self.simulate = simulate
+        self.server = None
+
+    def run(self):
+        print "Creating animation server..."
+        if os.path.exists(SOCKET_NAME):
+            os.remove(SOCKET_NAME)
+        
+        self.server = Animator(AnimationRequestHandler, self.simulate)
+        if not self.simulate:
+            print "Starting animation server..."
+            print "Animation server is running on socket {0}".format(SOCKET_NAME)
+            #print "Quit the server with CONTROL-C."        
+            self.server.serve_forever()
+        else:
+            print "Starting simulation..."
+            button_window = Toplevel()
+            button_window.title('Button Input')
+            img = PhotoImage(file="easy_button.gif")
+            single_easy_button = Button(button_window, image=img)
+            single_easy_button.pack()
+            single_easy_button.bind("<Button-1>", lambda e: server.processCommand(ButtonEvent.SINGLEPRESS))
+            double_easy_button = Button(button_window, text="double tap")
+            double_easy_button.pack()
+            double_easy_button.bind("<Button-1>", lambda e: server.processCommand(ButtonEvent.DOUBLEPRESS))        
+            mainloop()
+            
+    def join(self, timeout=None):
+        self.server.shutdown()
+        super(RunServer, self).join(timeout)
+
 if __name__ == "__main__":
+    run_server = RunServer(SIMULATE)
+    run_server.start()
+    time.sleep(1)
+    commands = Animation.ANIMATIONS.keys()
+    commands.sort()
+    print "Type 'q' to quit or 'h' for help."
+ 
+    while True:
+        cmd = raw_input(">")
+        if cmd == "q" or cmd == "quit":
+            break
+        elif cmd == "help" or cmd == "h" or cmd not in commands:
+            print "The available commands are:"
+            for command in commands:
+                print "\t{0}".format(command)
+        else:
+            sendMessage(cmd)
 
-    print "Creating animation server"
-    if os.path.exists(SOCKET_NAME):
-        os.remove(SOCKET_NAME)
+    sendMessage(Animation.BLACKOUT)
+    run_server.join()
 
-    server = Animator(AnimationRequestHandler, SIMULATE)
-
-    if not SIMULATE:
-        print "Starting animation server..."
-        print "Animation server is running on socket {0}".format(SOCKET_NAME)
-        print "Quit the server with CONTROL-C."
-        server.serve_forever()
-    else:
-        print "Starting simulation..."
-        button_window = Toplevel()
-        button_window.title('Button Input')
-        img = PhotoImage(file="easy_button.gif")
-        single_easy_button = Button(button_window, image=img)
-        single_easy_button.pack()
-        single_easy_button.bind("<Button-1>", lambda e: server.processCommand(ButtonEvent.SINGLEPRESS))
-        double_easy_button = Button(button_window, text="double tap")
-        double_easy_button.pack()
-        double_easy_button.bind("<Button-1>", lambda e: server.processCommand(ButtonEvent.DOUBLEPRESS))        
-
-    mainloop()
+    
