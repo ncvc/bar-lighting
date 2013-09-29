@@ -56,26 +56,20 @@ except AttributeError:
     NO_STRIP_ATTACHED = True
     StreamServer = SocketServer.BaseServer
 
-
 class ButtonEvent:
     SINGLEPRESS = 'singlepress'
     DOUBLEPRESS = 'doublepress'
     LONGPRESS   = 'longpress'
-
-class ControlCommand:
-    TOGGLEXMASMODE = 'togglexmasmode'
-    SHUTDOWN = 'shutdown'
 
 class Animator(StreamServer, object):
     def __init__(self, handler, noStrip=NO_STRIP_ATTACHED):
         super(Animator, self).__init__(SOCKET_NAME, handler)
         self.queue         = Queue.Queue(1)
         if noStrip:
-            strip          = Strip.TestingStrip(STRIP_LENGTH, ROW_LENGTH)
+            strip          = Strip.SimulationStrip(STRIP_LENGTH, ROW_LENGTH)
         else: 
-            strip          = Strip.Strip(STRIP_LENGTH, ROW_LENGTH)
+            strip          = Strip.HardwareStrip(STRIP_LENGTH)
         self.strip         = strip
-        self.xmastoggle    = False
 
         self.counter     = ModCounter(len(Animation.DYNAMIC_ANIMATIONS))
 
@@ -107,10 +101,6 @@ class Animator(StreamServer, object):
         elif command == ButtonEvent.LONGPRESS:
             animation = Animation.ANIMATIONS[Animation.BLACKOUT]
 
-        elif command == ControlCommand.TOGGLEXMASMODE:
-            self.xmastoggle = not self.xmastoggle
-            self.strip.enableXmasMode(self.xmastoggle)
-        
         else:
             animation = Animation.ANIMATIONS.get(command)
 
@@ -188,7 +178,7 @@ class ButtonMonitor(threading.Thread, object):
         single_press_validate_count = 0
         
         long_press_validate_threshold   = 150
-        single_press_validate_threshold = 25
+        single_press_validate_threshold = 15
         
         while not self.stop_request.isSet():
             input_value  = not GPIO.input(INPUT_PIN)

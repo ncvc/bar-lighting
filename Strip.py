@@ -3,7 +3,7 @@
 # Colors are represented as a three element list [R, G, B]
 # where 0 <= R, G, B <= 127
 
-import time, math
+import time, math, copy
 from Tkinter import Canvas, Tk, mainloop, Toplevel
 
 DEV_PATH = '/dev/spidev0.0'
@@ -11,100 +11,127 @@ MAX_BRIGHTNESS = 127
 DEFAULT_LED_SIZE = 40
 SHOW_SLEEP_TIME = 0.0000001
 
-# Base strip class that implements nearly all necessary functionality.
-# Implementing classes must override the show() method
+# Base strip class that defines the strip interface
+# Implementing classes must override all methods
 class BaseStrip(object):
-    def __init__(self, num_pixels, row_length):
-        self.num_pixels = num_pixels
-        self.row_length = row_length
-        self.rows = num_pixels / row_length
-        self.columns = row_length
-        self.xmasMode   = False
-        self.buffer     = [[0,0,0]] * num_pixels
+    def __init__(self, length):
+        self.length = length
+        
+    def setPixelColor(self, color):
+        raise NotImplementedError("Do not use BaseStrip directly - try HardwareStrip or SimulationStrip")
+    
+    def getPixelColor(self, color):
+        raise NotImplementedError("Do not use BaseStrip directly - try HardwareStrip or SimulationStrip")
+    
+    def setColor(self, color):
+        raise NotImplementedError("Do not use BaseStrip directly - try HardwareStrip or SimulationStrip")
+        
+    def blackout(self):
+        raise NotImplementedError("Do not use BaseStrip directly - try HardwareStrip or SimulationStrip")
+        
+    def show(self):
+        raise NotImplementedError("Do not use BaseStrip directly - try HardwareStrip or SimulationStrip")
+        
+    def __len__(self):
+        return self.length
+
+    def __getitem__(self, pixel):
+        return self.getPixelColor(pixel)
+
+# Class that contains a buffer to hold pixel values
+# and almost all functionality.
+# Overriding classes must implement show() method
+class Strip(BaseStrip):
+    def __init__(self, length):
+        super(Strip, self).__init__(length)
+        self.buffer = [[0,0,0]] * length
 
     def setPixelColor(self, pixel, color):
-        if pixel >= self.num_pixels:
-            raise Exception("Invalid pixel index {0}".format(pixel))
-
-        color = [max(0, min(i, MAX_BRIGHTNESS)) for i in color]
-
-        if self.xmasMode:
-            i=1
-            minBrightness = 50
-            if i == 0:
-                color[2] = 0
-            elif i==1:
-                distR = (color[0] - MAX_BRIGHTNESS)**2 + color[1]**2 + color[2]**2
-                distG = color[0]**2 + (color[1] - MAX_BRIGHTNESS)**2 + color[2]**2
-                if distR < distG:
-                    color = [MAX_BRIGHTNESS, 0, 0]
-                else:
-                    color = [0, MAX_BRIGHTNESS, 0]
-            elif i==2:
-                distR = (color[0] - MAX_BRIGHTNESS)**2 + color[1]**2 + color[2]**2
-                distG = color[0]**2 + (color[1] - MAX_BRIGHTNESS)**2 + color[2]**2
-                if distR < distG:
-                    color[1] = color[2] = 0
-                else:
-                    color[0] = color[2] = 0
-                color = [max(minBrightness, min(i, MAX_BRIGHTNESS)) for i in color]
-
         self.buffer[pixel] = [int(i) for i in color]
 
-    def setGridPixelColor(self, x, y, color):
-        if y % 2 == 0 :
-            x_offset = x
-        else:
-            x_offset = self.columns - x - 1
-        self.setPixelColor(x_offset + y * self.row_length, color)
-
-    def getGridPixelColor(self, x, y):
-        if y % 2 == 0 :
-            x_offset = x
-        else:
-            x_offset = self.columns - x - 1
-        return self.buffer[x_offset + y * self.row_length]
+    def getPixelColor(self, pixel):
+        return self.buffer[pixel]
 
     def setColor(self, color):
-        for i in range(self.num_pixels):
-            self.setPixelColor(i, color)
-
-    def setColumnColor(self, column, color):
-        for row in range(self.rows):
-            self.setPixelColor(column, row, color)
-
-    def setRowColor(self, row, color):
-        for column in range(self.columns):
-            self.setPixelColor(column, row, color)
+        for pixel in range(self.length):
+            self.setPixelColor(pixel, color)
 
     def blackout(self):
         self.setColor([0,0,0])
-        self.show()
 
     def show(self):
-        raise NotImplementedError("Do not use BaseStrip directly - try Strip or TestingStrip")
+        raise NotImplementedError("Do not use Strip directly - try HardwareStrip or SimulationStrip")
 
-    def enableXmasMode(self, enable=True):
-        self.xmasMode = enable
+class Substrip(BaseStrip):
+    def __init__(self, start_fcn, end_fcn, reverse=False):
+        super(Substrip, self).__init__(0)
+        self.start_fcn = start_fcn
+        self.end_fcn = end_fcn
+        self.strip = None
+        self.start = 0
+        self.end   = 0
+        self.reverse = reverse
 
-    def getPixelColor(self, i):
-        return self.buffer[i]
+    def setPixelColor(self, pixel, color):
+        if not self.reverse:
+            self.strip.setPixelColor(self.start + pixel, color)
+        else:
+            self.strip.setPixelColor(self.end - pixel, color)
 
-    def __len__(self):
-        return self.num_pixels
+    def getPixelColor(self, pixel):
+        if not self.reverse:
+            return self.strip.getPixelColor(self.start + pixel)
+        else:
+            return self.strip.getPixelColor(self.end - pixel)
 
-    def __getitem__(self, i):
-        return self.buffer[i]
+    def setColor(self, color):
+        for pixel in range(len(self)):
+            self.strip.setPixelColor(self.start + pixel, color)
 
-# Class for a real light strip
-class Strip(BaseStrip):
-    def __init__(self, num_pixels, row_length, device_name=DEV_PATH):
-        super(Strip, self).__init__(num_pixels, row_length)
-        self.device = file(device_name, "wb")
-        self.show()
+    def blackout(self):
+        for pixel in range(len(self)):
+            self.strip.setPixelColor(self.start + pixel, [0, 0, 0])
 
     def show(self):
-        for i in range(self.num_pixels):
+        self.strip.show()
+
+    def setStrip(self, strip):
+        self.strip = strip
+        self.start = self.start_fcn(len(strip))
+        self.end = self.end_fcn(len(strip))
+        self.length = self.end - self.start + 1
+
+class FirstHalfSubstrip(Substrip):
+    def __init__(self, reverse=False):
+        super(FirstHalfSubstrip, self).__init__(lambda length: 0, lambda length: length / 2 - 1, reverse)
+
+class SecondHalfSubstrip(Substrip):
+    def __init__(self, reverse=False):
+        super(SecondHalfSubstrip, self).__init__(lambda length: length / 2, lambda length: length - 1, reverse)
+
+class FirstQuarterSubstrip(Substrip):
+    def __init__(self, reverse=False):
+        super(FirstQuarterSubstrip, self).__init__(lambda length: 0, lambda length: length / 4 - 1, reverse)
+
+class SecondQuarterSubstrip(Substrip):
+    def __init__(self, reverse=False):
+        super(SecondQuarterSubstrip, self).__init__(lambda length: length / 4, lambda length: length / 2- 1, reverse)
+
+class ThirdQuarterSubstrip(Substrip):
+    def __init__(self, reverse=False):
+        super(ThirdQuarterSubstrip, self).__init__(lambda length: length / 2, lambda length: length / 2 + length / 4 - 1, reverse)
+
+class FourthQuarterSubstrip(Substrip):
+    def __init__(self, reverse=False):
+        super(FourthQuarterSubstrip, self).__init__(lambda length: length / 2 + length / 4 - 1, lambda length: length - 1, reverse)
+        
+class HardwareStrip(Strip):
+    def __init__(self, length, device_name=DEV_PATH):
+        super(HardwareStrip, self).__init__(length)
+        self.device = file(device_name, "wb");
+
+    def show(self):
+        for i in range(self.length):
             r, g, b = self[i]
             self.device.write(chr(g | 0x80))
             self.device.write(chr(r | 0x80))
@@ -115,32 +142,31 @@ class Strip(BaseStrip):
         self.device.flush()
         time.sleep(SHOW_SLEEP_TIME)
 
-
 # Class for an on-screen testing strip
-class TestingStrip(BaseStrip):
-    def __init__(self, num_pixels, row_length, led_size=DEFAULT_LED_SIZE):
-        super(TestingStrip, self).__init__(num_pixels, row_length)
+class SimulationStrip(Strip):
+    def __init__(self, length, row_length, led_size=DEFAULT_LED_SIZE):
+        super(SimulationStrip, self).__init__(length)
         led_window = Tk()
         led_window.title('LED Simulator')
         MARGIN = 5
         led_size = min((led_window.winfo_screenwidth() - 2 * MARGIN) / row_length, led_size)
-        num_rows = math.ceil(num_pixels / row_length)
+        num_rows = math.ceil(length / row_length)
         height = num_rows * led_size + (1 + num_rows) * MARGIN
         width = led_size * row_length + 2 * MARGIN
         self.canvas = Canvas(led_window, width=width, height=height)
         self.canvas.pack()
-        self.leds = [] * num_pixels
-        self.leds = [self.create_rectangle(i, num_pixels, row_length, led_size, MARGIN) for i in xrange(num_pixels)]
+        self.leds = [] * length
+        self.leds = [self.create_rectangle(i, row_length, led_size, MARGIN) for i in xrange(length)]
         self.canvas.update()
 
     def show(self):
-        for i in xrange(self.num_pixels):
+        for i in xrange(self.length):
             color = '#%02x%02x%02x' % tuple([(255 * c) / MAX_BRIGHTNESS for c in self[i]])
             self.canvas.itemconfigure(self.leds[i], fill=color)
         self.canvas.update()
         time.sleep(SHOW_SLEEP_TIME)
 
-    def create_rectangle(self, index, num_pixels, row_length, led_size, margin):
+    def create_rectangle(self, index, row_length, led_size, margin):
         #x0
         if (index / row_length) % 2 == 0:
             x0 = margin + (index % row_length) * led_size
@@ -160,10 +186,3 @@ class TestingStrip(BaseStrip):
         y1 = margin + (led_size + margin) * (index / row_length) + led_size
 
         return self.canvas.create_rectangle(x0, y0, x1, y1)
-
-
-if __name__ == '__main__':
-    strip = TestingStrip(32)
-    strip.setColor([127,0,0])
-    strip.show()
-    mainloop()

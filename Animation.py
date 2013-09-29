@@ -1,11 +1,11 @@
 import random
 import Colors
+import Strip
 import datetime
 from ModCounter import ModCounter
 import Queue
 #import numpy as np
 #import pyaudio
-
 
 # Base Animation class that implements nearly all necessary functionality.
 # Implementing classes must override the step() method
@@ -67,6 +67,54 @@ class StaticColor(BaseAnimation):
         return str(self.color)
 
 
+class ColorRotate(BaseAnimation):
+    def __init__(self, wait=1):
+        super(ColorRotate, self).__init__(wait=wait)
+        self.name = "Color Rotate"
+        self.counter = ModCounter(len(Colors.COLORS))
+
+    def step(self, strip):
+        strip.setColor(Colors.COLORS[self.counter.i].rgb())
+        self.counter += 1
+        return True
+
+class ColorChase(BaseAnimation):
+    def __init__(self, spacing, color_change_length, wait=.05):
+        super(ColorChase, self).__init__(wait=wait)
+        self.color_counter = ModCounter(len(Colors.COLORS))
+        self.spacing = spacing
+        self.spacing_counter = ModCounter(spacing);
+        self.color_change_counter = ModCounter(color_change_length)
+        self.name = "Color Chase"
+        self.color = Colors.COLORS[0]
+
+    def step(self, strip):
+        if self.color_change_counter == 0:
+            temp = self.color
+            while temp == self.color:
+                temp = random.choice(Colors.COLORS)
+            self.color = temp
+
+        self.color_change_counter += 1
+        self.spacing_counter += 1
+
+        for i in range(len(strip)):
+            if i % self.spacing  == self.spacing_counter.i:
+               strip.setPixelColor(i, self.color.rgb())
+
+            if ((i + 1) % self.spacing) == self.spacing_counter.i:
+                strip.setPixelColor(i, [0, 0, 0])
+
+        #reverse direction
+        #for i in range(len(strip)):
+        #    if ((self.spacing - 1) - (i % self.spacing)) == self.spacing_counter.i:
+        #        strip.setPixelColor(i, self.color2.rgb())
+
+        #    if ((self.spacing - 1) - ((i - 1) % self.spacing)) == self.spacing_counter.i:
+        #        strip.setPixelColor(i, [0, 0, 0])
+
+        return True
+
 class Rainbow(BaseAnimation):
     def __init__(self, wait=0.01):
         super(Rainbow, self).__init__(wait)
@@ -74,16 +122,15 @@ class Rainbow(BaseAnimation):
         self.name = "Rainbow"
 
     def step(self, strip):
-        for i in range(len(strip)):
-            strip.setPixelColor(i, self.wheel((i + self.counter.i) % 384))
-        self.counter += 5
+        strip.setColor(self.wheel(self.counter.i % 384))
+        self.counter += 1
         return True
 
 class Droplets(BaseAnimation):
     def __init__(self, wait=0.05):
         super(Droplets, self).__init__(wait)
         self.buffer = None
-        self.add_rate = .3
+        self.add_rate = .9
         self.fade_rate = 5
         self.name = 'Droplets'
 
@@ -103,13 +150,13 @@ class Droplets(BaseAnimation):
 class RainbowCycle(BaseAnimation):
     def __init__(self, wait=0.01):
         super(RainbowCycle, self).__init__(wait)
-        self.counter = ModCounter(384 * 5)
+        self.counter = ModCounter(384)
         self.name = "Rainbow Cycle"
 
     def step(self, strip):
         for i in range(len(strip)):
             strip.setPixelColor(i, self.wheel(((i * 384 / len(strip)) + self.counter.i) % 384))
-        self.counter += 1
+        self.counter += 5
         return True
 
 
@@ -134,6 +181,25 @@ class ColorWipe(BaseAnimation):
         self.counter += 1
         return True
 
+
+class ColorStrobe(BaseAnimation):
+    def __init__(self, wait=.001):
+        super(ColorStrobe, self).__init__(wait)
+        self.name = "Color Strobe"
+        self.toggle = True
+        self.counter = ModCounter(384)
+
+    def step(self, strip):
+        if self.toggle:
+            color = self.wheel(self.counter.i % 384)
+            self.toggle = False
+        else:
+            color = Colors.BLACKOUT.rgb()
+            self.toggle = True
+
+        strip.setColor(color)
+        self.counter += 1
+        return True
 
 class Blink(BaseAnimation):
     def __init__(self, num_blinks, wait=.25):
@@ -165,7 +231,7 @@ class Additive(BaseAnimation):
         super(Additive, self).__init__(wait)
         self.color = Colors.BLACKOUT
         self.buffer = None
-        self.step_size = .1
+        self.step_size = .2
         self.fade = fade
         self.name = 'Additive Fade' if fade else 'Additive Cycle'
         self.tolerance = .85
@@ -265,8 +331,7 @@ class RandomChoice(BaseAnimation):
             self.blink_counter += 1
 
         return self.blink_counter > 2 * self.num_blinks
-
-    def should_autorun(self):
+  def should_autorun(self):
         return False
 
 class AutoRun(BaseAnimation):
@@ -318,13 +383,13 @@ class MusicReactive(BaseAnimation):
         self.name = "MusicReactive"
         self.queue = [0] * self.RATE * QUEUE_SECONDS
 
-        self.p = pyaudio.PyAudio()
+        #self.p = pyaudio.PyAudio()
 
-        self.stream = self.p.open(format=FORMAT,
-                             channels=CHANNELS,
-                             rate=self.RATE,
-                             input=True,
-                             frames_per_buffer=self.CHUNK)
+        #self.stream = self.p.open(format=FORMAT,
+        #                     channels=CHANNELS,
+        #                     rate=self.RATE,
+        #                     input=True,
+        #                     frames_per_buffer=self.CHUNK)
 
     def getFreqs(self):
         while self.stream.get_read_available() >= self.CHUNK:
@@ -418,6 +483,35 @@ class MusicCenterSlider(MusicReactive):
         return True
 """
 
+class MultiAnimation(BaseAnimation):
+    def __init__(self, animations, substrips):
+        smallest_wait = min([animation.wait for animation in animations])
+        super(MultiAnimation, self).__init__(wait=smallest_wait)
+        print self.wait
+        assert(len(animations) == len(substrips))
+        self.animations = animations
+        self.substrips = substrips
+        self.waits = [ModCounter(int(animation.wait / smallest_wait)) for animation in animations]
+
+    def step(self, strip):
+        for i in range(len(self.animations)):
+            if self.waits[i] == 0:
+                self.animations[i].step(self.substrips[i])
+            self.waits[i] += 1
+        return True
+
+#    def setStrip(self, strip):
+#        for i in range(len(self.substrips)):
+#            self.substrips[i].setStrip(strip)
+
+    def setup(self, strip):
+        for i in range(len(self.animations)):
+            self.substrips[i].setStrip(strip)
+            self.animations[i].setup(self.substrips[i])
+
+    def __repr__(self):
+        return "MultiAnimation: " + ", ".join([str(a) for a in self.animations])
+
 # String constants
 COLORWIPE      = 'colorwipe'
 BLACKOUT       = 'blackout'
@@ -432,24 +526,18 @@ BLACKOUT       = 'blackout'
 RANDOM         = 'randomchoice'
 RAINBOW        = 'rainbow'
 RAINBOWCYCLE   = 'rainbowcycle'
-BLINKONCE      = 'blinkonce'
-BLINKTWICE     = 'blinktwice'
 MUSIC          = 'music'
 DROPLETS       = 'droplets'
-ADDITIVEFADE   = 'additivefade'
 ADDITIVECYCLE  = 'additivecycle'
 AUTORUN        = 'autorun'
-
+COLORROTATE    = 'colorrotate'
+COLORCHASE     = 'colorchase'
+COLORSTROBE    = 'color strobe'
+MULTITEST      = 'multitest'
 
 ANIMATIONS    = {COLORWIPE    : ColorWipe(),
                  RAINBOW      : Rainbow(),
                  RAINBOWCYCLE : RainbowCycle(),
-                 STATICRED    : StaticColor(Colors.RED),
-                 STATICGREEN  : StaticColor(Colors.GREEN),
-                 STATICBLUE   : StaticColor(Colors.BLUE),
-                 STATICMAGENTA: StaticColor(Colors.MAGENTA),
-                 STATICCYAN   : StaticColor(Colors.CYAN),
-                 STATICWHITE  : StaticColor(Colors.WHITE),
                  BLACKOUT     : StaticColor(Colors.BLACKOUT),
                  RANDOM       : RandomChoice(),
                  BLINKONCE    : Blink(1),
@@ -464,3 +552,11 @@ ANIMATIONS    = {COLORWIPE    : ColorWipe(),
 DYNAMIC_ANIMATIONS = [animation for identifier, animation in ANIMATIONS.items() if animation.should_autorun()]
 
 ANIMATIONS[AUTORUN] = AutoRun(DYNAMIC_ANIMATIONS)
+                 #MUSIC        : MusicReactive(),
+                 DROPLETS     : Droplets(),
+                 ADDITIVECYCLE: Additive(False),
+                 COLORROTATE  : ColorRotate(),
+                 COLORCHASE   : ColorChase(4, 64),
+                 COLORSTROBE  : ColorStrobe(),
+                 MULTITEST    : MultiAnimation([ColorChase(4, 32), ColorChase(4, 32), ColorChase(4, 32), ColorChase(4, 32)],
+                                               [Strip.FirstQuarterSubstrip(True), Strip.SecondQuarterSubstrip(), Strip.ThirdQuarterSubstrip(True), Strip.FourthQuarterSubstrip()])}
